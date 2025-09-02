@@ -18,4 +18,6 @@ frontend/.env
 # IDE files
 .vscode/
 .DS_Store
-backend-node/
+# backend-node/
+
+

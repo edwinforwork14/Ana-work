@@ -5,10 +5,14 @@ const app = express();
 const pool = require("./src/config/db");
 const authRoutes = require("./src/routes/authRoutes");
 
+const citaRoutes = require("./src/routes/citaRoutes");
+
 app.use(express.json());
 
 // rutas
 app.use("/api/auth", authRoutes);
+
+app.use("/api/citas", citaRoutes);
 
 // ping
 app.get("/", (_, res) => res.send("API OK"));
