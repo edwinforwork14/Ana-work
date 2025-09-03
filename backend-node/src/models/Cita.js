@@ -2,9 +2,14 @@
 const pool = require('../config/db');
 
 const Cita = {
+  // Listar todas las citas (solo admin y staff)
+  findAll: async () => {
+    const result = await pool.query('SELECT * FROM citas');
+    return result.rows;
+  },
   create: async (data) => {
     const {
-      cliente_id,
+      id_usuario,
       fecha,
       motivo,
       estado = 'pendiente',
@@ -12,9 +17,9 @@ const Cita = {
       recordatorio_enviado = false,
     } = data;
     const result = await pool.query(
-      `INSERT INTO citas (cliente_id, fecha, motivo, estado, persona_asignada_id, recordatorio_enviado)
+      `INSERT INTO citas (id_usuario, fecha, motivo, estado, persona_asignada_id, recordatorio_enviado)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [cliente_id, fecha, motivo, estado, persona_asignada_id, recordatorio_enviado]
+      [id_usuario, fecha, motivo, estado, persona_asignada_id, recordatorio_enviado]
     );
     return result.rows[0];
   },
@@ -25,9 +30,9 @@ const Cita = {
     return result.rows[0];
   },
 
-  // Listar todas las citas de un cliente
-  findAllByCliente: async (cliente_id) => {
-    const result = await pool.query('SELECT * FROM citas WHERE cliente_id = $1', [cliente_id]);
+  // Listar todas las citas de un usuario
+  findAllByUsuario: async (id_usuario) => {
+    const result = await pool.query('SELECT * FROM citas WHERE id_usuario = $1', [id_usuario]);
     return result.rows;
   },
 

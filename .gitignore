@@ -14,7 +14,7 @@ backend-node/dist/
 .env
 backend-node/.env
 frontend/.env
-
+backend-node/src/testCita.js
 # IDE files
 .vscode/
 .DS_Store
