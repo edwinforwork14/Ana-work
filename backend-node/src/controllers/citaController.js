@@ -1,3 +1,6 @@
+// src/controllers/citaController.js
+const Cita = require('../models/Cita');
+
 // Obtener todas las citas de un usuario específico (solo staff y admin)
 exports.getCitasByUsuario = async (req, res) => {
   try {
@@ -44,12 +47,15 @@ exports.updateCita = async (req, res) => {
     }
     let data = { ...req.body };
     if (req.user.rol === 'cliente') {
-      // El cliente solo puede modificar su propia cita y no el estado
+      // El cliente solo puede modificar su propia cita y no el estado ni persona_asignada_id
       if (cita.id_usuario !== req.user.id) {
         return res.status(403).json({ error: "No tienes permiso para modificar esta cita" });
       }
       if ('estado' in data) {
         delete data.estado;
+      }
+      if ('persona_asignada_id' in data) {
+        delete data.persona_asignada_id;
       }
     } else if ((req.user.rol === 'admin' || req.user.rol === 'staff')) {
       // Admin y staff solo pueden modificar el estado
@@ -80,16 +86,21 @@ exports.deleteCita = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
-// src/controllers/citaController.js
-const Cita = require('../models/Cita');
 
 exports.createCita = async (req, res) => {
   try {
-  // id_usuario viene del token JWT
-  const data = { ...req.body, id_usuario: req.user.id };
-  const cita = await Cita.create(data);
+    let data = { ...req.body, id_usuario: req.user.id };
+    if (req.user.rol === 'cliente') {
+      if ('persona_asignada_id' in data) {
+        delete data.persona_asignada_id;
+      }
+      if ('estado' in data) {
+        delete data.estado;
+      }
+    }
+    const cita = await Cita.create(data);
     res.status(201).json(cita);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "llena los campos nesesarios para agendar la cita" });
   }
 };

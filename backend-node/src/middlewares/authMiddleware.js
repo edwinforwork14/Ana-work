@@ -19,13 +19,16 @@ const authMiddleware = (req, res, next) => {
 };
 
 // Autoriza por rol
-const authorize = (roles = []) => (req, res, next) => {
-  if (!roles.length) return next();
-  if (!req.user?.rol || !roles.includes(req.user.rol)) {
-    return res.status(403).json({ error: "No autorizado" });
-  }
-  next();
+const authorize = (roles = []) => {
+  return (req, res, next) => {
+    if (!roles.length) {
+      return next();
+    }
+    if (!req.user?.rol || !roles.includes(req.user.rol)) {
+      return res.status(403).json({ error: "No autorizado" });
+    }
+    return next(); // return para que no siga después de mandar respuesta
+  };
 };
-
 module.exports = { authMiddleware, authorize };
 

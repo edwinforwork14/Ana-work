@@ -1,10 +1,15 @@
 const express = require("express");
 const app = express();
-const pool = require("./src/config/db");
-const authRoutes = require("./src/routes/authRoutes");
-const citaRoutes = require("./src/routes/citaRoutes");
+const pool = require("./config/db");
+const authRoutes = require("./routes/authRoutes");
+const citaRoutes = require("./routes/citaRoutes");
 
 app.use(express.json());
+
+//verificar si el servidor está corriendo
+app.get("/ping", (req, res) => {
+  res.json({ ok: true });
+});
 
 // Logging de cada petición
 app.use((req, res, next) => {

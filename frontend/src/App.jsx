@@ -16,7 +16,7 @@ function App() {
         <Route path="/dashboard-cliente" element={<DashboardCliente />} />
         <Route path="/dashboard-staff" element={<DashboardStaff />} />
         <Route path="/dashboard-admin" element={<DashboardAdmin />} />
-        <Route path="/" element={<div><h1>Bienvenido a Roadmap Ana</h1></div>} />
+        <Route path="/" element={<div><h1>Bienvenido</h1></div>} />
       </Routes>
     </Router>
   );

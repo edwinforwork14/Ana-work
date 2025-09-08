@@ -37,20 +37,50 @@ const Cita = {
   },
 
   // Actualizar cita
-  update: async (id, data) => {
-    const fields = [];
-    const values = [];
-    let idx = 1;
-    for (const key in data) {
+update: async (id, data) => {
+  // Definir columnas permitidas
+  const allowed = ["fecha", "motivo", "estado"];
+
+  // Obtener la cita actual
+  const citaActual = await Cita.findById(id);
+  if (!citaActual) {
+    throw new Error("Cita no encontrada");
+  }
+
+  // Filtrar solo los campos permitidos y que realmente cambian
+  const fields = [];
+  const values = [];
+  let idx = 1;
+  let hayCambios = false;
+
+  for (const key of allowed) {
+    if (data.hasOwnProperty(key) && data[key] !== citaActual[key]) {
       fields.push(`${key} = $${idx}`);
       values.push(data[key]);
       idx++;
+      hayCambios = true;
     }
-    values.push(id);
-    const q = `UPDATE citas SET ${fields.join(', ')}, updated_at = NOW() WHERE id = $${idx} RETURNING *`;
-    const result = await pool.query(q, values);
-    return result.rows[0];
-  },
+  }
+
+  // Si no hay cambios reales
+  if (!hayCambios) {
+    return { actualizado: false, mensaje: "Sin cambios: los valores son iguales o no hay campos válidos." };
+  }
+
+  // Agregar updated_at
+  fields.push(`updated_at = NOW()`);
+  values.push(id);
+
+  const q = `
+    UPDATE citas 
+    SET ${fields.join(", ")} 
+    WHERE id = $${idx} 
+    RETURNING *;
+  `;
+
+  const result = await pool.query(q, values);
+  return { actualizado: true, cita: result.rows[0] };
+},
 
   // Eliminar cita
   delete: async (id) => {
