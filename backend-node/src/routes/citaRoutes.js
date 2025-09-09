@@ -18,7 +18,7 @@ router.get('/:id', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), ci
 // Obtener todas las citas de un usuario específico (solo staff y admin)
 router.get('/usuario/:id', authMiddleware, allowRoles(['staff', 'admin']), citaController.getCitasByUsuario);
 
-// Actualizar cita: solo staff y admin
+// Actualizar cita: solo staff y admin cliente solo puede actualizar sus propias citas pero no el estado y la persona asignada
 router.put('/:id', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), citaController.updateCita);
 
 // Eliminar cita: solo admin
