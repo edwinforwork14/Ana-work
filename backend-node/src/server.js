@@ -1,8 +1,16 @@
 const express = require("express");
+const cors = require("cors");
 const app = express();
 const pool = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const citaRoutes = require("./routes/citaRoutes");
+
+
+// Configura CORS para permitir solicitudes desde el frontend
+app.use(cors({
+  origin: "http://localhost:5173", 
+  credentials: true
+}));
 
 app.use(express.json());
 
@@ -36,5 +44,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error interno del servidor" });
 });
 
+console.log('JWT_SECRET:', process.env.JWT_SECRET);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));
