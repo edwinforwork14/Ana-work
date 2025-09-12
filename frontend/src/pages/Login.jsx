@@ -1,18 +1,54 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
-export default function Login() {
+function Login({ onLoginSuccess }) {
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
+	const [loginSuccess, setLoginSuccess] = useState(false);
+	const navigate = useNavigate();
 
-	const handleSubmit = (e) => {
+	const handleSubmit = async (e) => {
 		e.preventDefault();
-		// Aquí puedes agregar la lógica de autenticación
-		console.log('Email:', email, 'Password:', password);
+		try {
+			const response = await fetch('http://localhost:3000/api/auth/login', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ email, password }),
+			});
+			const data = await response.json();
+			if (response.ok) {
+				// Autenticación exitosa, guarda el token JWT
+				if (data.token) {
+					localStorage.setItem('token', data.token);
+					console.log('Token guardado:', data.token);
+					setLoginSuccess(true);
+					if (onLoginSuccess) onLoginSuccess();
+					setTimeout(() => {
+						setLoginSuccess(false);
+						navigate('/');
+					}, 2000); // Oculta el mensaje y redirige después de 2 segundos
+				}
+			} else {
+				// Error de autenticación
+				console.error('Error de login:', data.message || data);
+			}
+		} catch (error) {
+			console.error('Error de red:', error);
+		}
 	};
 
 	return (
 		<div className="min-h-screen flex items-center justify-center bg-gray-100">
-			<div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg">
+			<div className="max-w-md w-full bg-white p-8 rounded-xl shadow-lg relative">
+				{loginSuccess && (
+					<div className="absolute" style={{ right: '2rem', bottom: '-2.5rem' }}>
+						<div className="bg-green-600 text-white px-4 py-2 rounded shadow-lg text-sm animate-pulse">
+							¡Inicio de sesión exitoso!
+						</div>
+					</div>
+				)}
 				<h2 className="text-2xl font-bold text-green-600 mb-6 text-center">Iniciar sesión</h2>
 				<form className="space-y-6" onSubmit={handleSubmit}>
 					<input
@@ -42,3 +78,5 @@ export default function Login() {
 		</div>
 	);
 }
+
+export default Login;

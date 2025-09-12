@@ -8,20 +8,35 @@ const Cita = {
     return result.rows;
   },
   create: async (data) => {
-    const {
-      id_usuario,
-      fecha,
-      motivo,
-      estado = 'pendiente',
-      persona_asignada_id = null,
-      recordatorio_enviado = false,
-    } = data;
-    const result = await pool.query(
-      `INSERT INTO citas (id_usuario, fecha, motivo, estado, persona_asignada_id, recordatorio_enviado)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [id_usuario, fecha, motivo, estado, persona_asignada_id, recordatorio_enviado]
-    );
-    return result.rows[0];
+      const {
+        id_usuario,
+        fecha,
+        motivo,
+        estado = 'pendiente',
+        persona_asignada_id = null,
+        recordatorio_enviado = false,
+      } = data;
+
+      // Buscar la última cita creada por el usuario
+      const lastCitaRes = await pool.query(
+        `SELECT created_at FROM citas WHERE id_usuario = $1 ORDER BY created_at DESC LIMIT 1`,
+        [id_usuario]
+      );
+      if (lastCitaRes.rows.length > 0) {
+        const lastCreated = new Date(lastCitaRes.rows[0].created_at);
+        const now = new Date(); // Usar hora actual del servidor
+        const diffMs = now - lastCreated;
+        if (diffMs < 2 * 60 * 1000) { // menos de 2 minutos
+          return { error: 'Por favor espere para agendar otra cita', success: false };
+        }
+      }
+
+      const result = await pool.query(
+        `INSERT INTO citas (id_usuario, fecha, motivo, estado, persona_asignada_id, recordatorio_enviado, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING *`,
+        [id_usuario, fecha, motivo, estado, persona_asignada_id, recordatorio_enviado]
+      );
+      return { cita: result.rows[0], success: true, mensaje: 'Cita agendada exitosamente' };
   },
 
   // Buscar cita por ID

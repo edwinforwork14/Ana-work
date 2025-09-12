@@ -1,17 +1,101 @@
 
 import { Link, Routes, Route } from 'react-router-dom';
 
+
 import Login from './pages/Login';
 import Register from './pages/Register';
 import DashboardCliente from './pages/DashboardCliente';
 import DashboardStaff from './pages/DashboardStaff';
 import DashboardAdmin from './pages/DashboardAdmin';
-import { BackendData } from './components/BackendData';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import MyCitas from './pages/clienteFuntions/myCitas';
+import CreateCita from './pages/clienteFuntions/createCita';
+import UploadDocument from './pages/clienteFuntions/uploadDocument';
 
 
-export default function App() {
+function App() {
   const [dbError, setDbError] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userInfo, setUserInfo] = useState({ id: '', nombre: '', rol: '' });
+
+
+  // Decodifica el token JWT para obtener la expiración y datos de usuario
+  function parseJwt(token) {
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch {
+      return {};
+    }
+  }
+
+  function getTokenExpiration(token) {
+    const payload = parseJwt(token);
+    return payload.exp ? payload.exp * 1000 : null;
+  }
+
+  // Verifica si el token es válido y no ha expirado
+  function checkAuth() {
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+    const exp = getTokenExpiration(token);
+    if (!exp) return false;
+    return Date.now() < exp;
+  }
+
+
+  useEffect(() => {
+    setIsAuthenticated(checkAuth());
+    // Obtener info de usuario del token
+    const token = localStorage.getItem('token');
+    if (token) {
+      const payload = parseJwt(token);
+      setUserInfo({
+        id: payload.id || payload.user_id || '',
+        nombre: (payload.persona && payload.persona.nombre) || payload.nombre || payload.name || payload.username || '',
+        rol: payload.rol || ''
+      });
+    } else {
+      setUserInfo({ id: '', nombre: '', rol: '' });
+    }
+    // Opcional: refresca el estado cada minuto
+    const interval = setInterval(() => {
+      setIsAuthenticated(checkAuth());
+      const token = localStorage.getItem('token');
+      if (token) {
+        const payload = parseJwt(token);
+        setUserInfo({
+          id: payload.id || payload.user_id || '',
+          nombre: (payload.persona && payload.persona.nombre) || payload.nombre || payload.name || payload.username || '',
+          rol: payload.rol || ''
+        });
+      } else {
+        setUserInfo({ id: '', nombre: '', rol: '' });
+      }
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setIsAuthenticated(false);
+    window.location.href = '/';
+  };
+
+  // Callback para actualizar autenticación desde Login
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+    // Actualizar userInfo inmediatamente tras login
+    const token = localStorage.getItem('token');
+    if (token) {
+      const payload = parseJwt(token);
+      setUserInfo({
+        id: payload.id || payload.user_id || '',
+        nombre: (payload.persona && payload.persona.nombre) || payload.nombre || payload.name || payload.username || '',
+        rol: payload.rol || ''
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Header */}
@@ -20,9 +104,24 @@ export default function App() {
         <div className="flex-1 flex justify-center">
           <Link to="/" className="bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm font-semibold hover:bg-gray-300 transition">Inicio</Link>
         </div>
-        <div className="flex gap-4">
-          <Link to="/login" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">Iniciar sesión</Link>
-          <Link to="/register" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Registrarse</Link>
+        <div className="flex flex-col items-end gap-1">
+          {!isAuthenticated ? (
+            <div className="flex gap-4">
+              <Link to="/login" className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition">Iniciar sesión</Link>
+              <Link to="/register" className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">Registrarse</Link>
+            </div>
+          ) : (
+            <>
+              <button onClick={handleLogout} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition">Cerrar sesión</button>
+              {(userInfo.id || userInfo.nombre) && (
+                <div className="mt-1 text-xs text-gray-600 text-right">
+                  <div><span className="font-bold">ID:</span> {userInfo.id}</div>
+                  <div><span className="font-bold">Nombre:</span> {userInfo.nombre}</div>
+                  <div><span className="font-bold">Rol:</span> {userInfo.rol}</div>
+                </div>
+              )}
+            </>
+          )}
         </div>
         {dbError && (
           <div className="absolute" style={{ right: '2rem', bottom: '-2.5rem' }}>
@@ -50,13 +149,18 @@ export default function App() {
               </div>
             }
           />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard-cliente" element={<DashboardCliente />} />
           <Route path="/dashboard-staff" element={<DashboardStaff />} />
           <Route path="/dashboard-admin" element={<DashboardAdmin />} />
+          <Route path="/cliente/mis-citas" element={<MyCitas />} />
+          <Route path="/cliente/agendar-cita" element={<CreateCita />} />
+          <Route path="/cliente/subir-documento" element={<UploadDocument />} />
         </Routes>
       </main>
     </div>
   );
 }
+
+export default App;

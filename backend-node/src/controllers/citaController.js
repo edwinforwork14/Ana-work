@@ -98,9 +98,15 @@ exports.createCita = async (req, res) => {
         delete data.estado;
       }
     }
-    const cita = await Cita.create(data);
-    res.status(201).json(cita);
+    const result = await Cita.create(data);
+    if (result && result.success) {
+      res.status(201).json({ cita: result.cita, mensaje: result.mensaje || "Cita agendada exitosamente", success: true });
+    } else if (result && result.error) {
+      res.status(429).json({ error: result.error, success: false });
+    } else {
+      res.status(400).json({ error: "No se pudo crear la cita", success: false });
+    }
   } catch (err) {
-    res.status(500).json({ error: "llena los campos nesesarios para agendar la cita" });
+    res.status(500).json({ error: err.message || "Error interno al agendar la cita", success: false });
   }
 };
