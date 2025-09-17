@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const Cita = require('../models/Cita');
 const citaController = require('../controllers/citaController');
 const { authMiddleware } = require('../middlewares/authMiddleware');
 const { allowRoles } = require('../middlewares/permissionMiddleware');
@@ -23,5 +24,8 @@ router.put('/:id', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), ci
 
 // Eliminar cita: solo admin
 router.delete('/:id', authMiddleware, allowRoles(['admin']), citaController.deleteCita);
+
+// Confirmar cita: solo staff y admin
+router.post('/:id/confirmar', authMiddleware, allowRoles(['staff', 'admin']), citaController.confirmarCita);
 
 module.exports = router;

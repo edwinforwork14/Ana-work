@@ -29,6 +29,12 @@ const Usuario = {
     `;
     const r = await pool.query(q, [id]);
     return r.rows[0];
+  },
+  // Obtener todos los usuarios con rol staff
+  getStaffs: async () => {
+    const q = `SELECT id, nombre, email, rol, telefono FROM usuarios WHERE rol = 'staff' ORDER BY nombre`;
+    const result = await pool.query(q);
+    return result.rows;
   }
 };
 

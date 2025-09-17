@@ -91,9 +91,6 @@ exports.createCita = async (req, res) => {
   try {
     let data = { ...req.body, id_usuario: req.user.id };
     if (req.user.rol === 'cliente') {
-      if ('persona_asignada_id' in data) {
-        delete data.persona_asignada_id;
-      }
       if ('estado' in data) {
         delete data.estado;
       }
@@ -102,11 +99,25 @@ exports.createCita = async (req, res) => {
     if (result && result.success) {
       res.status(201).json({ cita: result.cita, mensaje: result.mensaje || "Cita agendada exitosamente", success: true });
     } else if (result && result.error) {
-      res.status(429).json({ error: result.error, success: false });
+      res.status(400).json({ error: result.error, success: false });
     } else {
       res.status(400).json({ error: "No se pudo crear la cita", success: false });
     }
   } catch (err) {
     res.status(500).json({ error: err.message || "Error interno al agendar la cita", success: false });
+  }
+};
+
+// Confirmar cita (solo staff y admin)
+exports.confirmarCita = async (req, res) => {
+  try {
+    const result = await Cita.confirmarCita(req.params.id);
+    if (result.success) {
+      res.json({ cita: result.cita, mensaje: result.mensaje, success: true });
+    } else {
+      res.status(400).json({ error: result.error, success: false });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message, success: false });
   }
 };

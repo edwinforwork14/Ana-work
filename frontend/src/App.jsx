@@ -8,9 +8,13 @@ import DashboardCliente from './pages/DashboardCliente';
 import DashboardStaff from './pages/DashboardStaff';
 import DashboardAdmin from './pages/DashboardAdmin';
 import { useState, useEffect } from 'react';
-import MyCitas from './pages/clienteFuntions/myCitas';
-import CreateCita from './pages/clienteFuntions/createCita';
-import UploadDocument from './pages/clienteFuntions/uploadDocument';
+
+import MyCitas from './pages/clientePanel/myCitas';
+import CreateCita from './pages/clientePanel/createCita';
+import UploadDocument from './pages/clientePanel/uploadDocument';
+import StaffCitas from './pages/staffPanel/citas';
+import AdminCitas from './pages/adminPanel/citas';
+import PrivateRoute from './components/PrivateRoute';
 
 
 function App() {
@@ -152,13 +156,36 @@ function App() {
           <Route path="/login" element={<Login onLoginSuccess={handleLoginSuccess} />} />
           <Route path="/register" element={<Register />} />
           <Route path="/dashboard-cliente" element={<DashboardCliente />} />
-          <Route path="/dashboard-staff" element={<DashboardStaff />} />
-          <Route path="/dashboard-admin" element={<DashboardAdmin />} />
+          <Route path="/dashboard-staff" element={
+            <PrivateRoute allowedRoles={['staff', 'admin']} user={userInfo}>
+              <DashboardStaff />
+            </PrivateRoute>
+          } />
+          <Route path="/dashboard-admin" element={
+            <PrivateRoute allowedRoles={['admin']} user={userInfo}>
+              <DashboardAdmin />
+            </PrivateRoute>
+          } />
           <Route path="/cliente/mis-citas" element={<MyCitas />} />
           <Route path="/cliente/agendar-cita" element={<CreateCita />} />
           <Route path="/cliente/subir-documento" element={<UploadDocument />} />
+          <Route path="/staff/citas" element={
+            <PrivateRoute allowedRoles={['staff', 'admin']} user={userInfo}>
+              <StaffCitas />
+            </PrivateRoute>
+          } />
+          <Route path="/admin/citas" element={
+            <PrivateRoute allowedRoles={['admin']} user={userInfo}>
+              <AdminCitas />
+            </PrivateRoute>
+          } />
         </Routes>
       </main>
+
+      {/* Footer */}
+      <footer className="w-full bg-white border-t border-gray-200 py-6 mt-8 flex items-center justify-center">
+        <span className="text-gray-400 text-sm">&nbsp;</span>
+      </footer>
     </div>
   );
 }

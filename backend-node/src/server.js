@@ -4,6 +4,22 @@ const app = express();
 const pool = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const citaRoutes = require("./routes/citaRoutes");
+const staffRoutes = require('./routes/staffRoutes');
+
+const rateLimit = require('express-rate-limit');
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // máximo 100 peticiones por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+const morgan = require('morgan');
+const fs = require('fs');
+const path = require('path');
+const logStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
+
 
 
 // Configura CORS para permitir solicitudes desde el frontend
@@ -12,6 +28,7 @@ app.use(cors({
   credentials: true
 }));
 
+app.use(morgan('combined', { stream: logStream }));
 app.use(express.json());
 
 //verificar si el servidor está corriendo
@@ -28,6 +45,7 @@ app.use((req, res, next) => {
 // rutas
 app.use("/api/auth", authRoutes);
 app.use("/api/citas", citaRoutes);
+app.use('/api/staff', staffRoutes);
 
 // ping
 app.get("/", (_, res) => res.send("API OK"));
