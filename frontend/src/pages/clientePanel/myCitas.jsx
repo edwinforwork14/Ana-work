@@ -55,7 +55,7 @@ export default function MyCitas() {
 									<td className="border px-2 py-1">{cita.fecha ? cita.fecha.slice(0, 10) : ''}</td>
 									<td className="border px-2 py-1">{cita.motivo}</td>
 									<td className="border px-2 py-1">{cita.estado}</td>
-									<td className="border px-2 py-1">{cita.persona_asignada_id || '-'}</td>
+									<td className="border px-2 py-1">{cita.id_staff || '-'}</td>
 									<td className="border px-2 py-1">{cita.recordatorio_enviado ? 'Sí' : 'No'}</td>
 									<td className="border px-2 py-1">{cita.created_at ? cita.created_at.slice(0, 19).replace('T', ' ') : ''}</td>
 								</tr>

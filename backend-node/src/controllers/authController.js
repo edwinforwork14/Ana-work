@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const Usuario = require("../models/Usuario");
 const { JWT_SECRET, JWT_EXPIRES_IN } = require("../config/auth");
+const { registerSchema, loginSchema } = require("./schemas");
 
 // Helper: construir payload de la "sesión personalizada"
 const buildSessionPayload = (u) => ({
@@ -20,8 +21,13 @@ const buildSessionPayload = (u) => ({
 });
 
 const authController = {
+
   register: async (req, res) => {
-    
+    // Validar datos de entrada
+    const { error } = registerSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
+    }
     try {
       const {
         nombre, email, password, rol,
@@ -62,6 +68,11 @@ const authController = {
   },
 
   login: async (req, res) => {
+    // Validar datos de entrada
+    const { error } = loginSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({ error: error.details[0].message });
+    }
     try {
       const { email, password } = req.body;
 

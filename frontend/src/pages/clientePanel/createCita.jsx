@@ -1,4 +1,6 @@
+
 import { useState, useEffect } from "react";
+import { parseISO, format } from "date-fns";
 
 export default function CreateCita() {
   const [fecha, setFecha] = useState("");
@@ -11,6 +13,34 @@ export default function CreateCita() {
   const [waitMsg, setWaitMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isBlocked, setIsBlocked] = useState(false);
+  const [disponibilidad, setDisponibilidad] = useState([]);
+
+  // Consultar disponibilidad del staff seleccionado
+  useEffect(() => {
+    if (staffId) {
+      const url = `http://localhost:3000/api/staff/disponibilidad?id_staff=${staffId}`;
+      const token = localStorage.getItem('token');
+      fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+        .then(res => res.json())
+        .then(data => {
+          setDisponibilidad(data.ocupados || []);
+        })
+        .catch(() => setDisponibilidad([]));
+    } else {
+      setDisponibilidad([]);
+    }
+  }, [staffId]);
+
+  // Mostrar en consola la ruta de disponibilidad cada vez que cambia el staff seleccionado
+  useEffect(() => {
+    if (staffId) {
+      console.log(`http://localhost:3000/api/staff/disponibilidad?id_staff=${staffId}`);
+    }
+  }, [staffId]);
 
   // Obtener lista de staffs
   useEffect(() => {
@@ -35,15 +65,15 @@ export default function CreateCita() {
       setErrorMsg("Debes seleccionar fecha y hora");
       return;
     }
-    setIsBlocked(true);
-    setTimeout(() => setIsBlocked(false), 120000); // 2 minutos
+  setIsBlocked(true);
+  setTimeout(() => setIsBlocked(false), 30000); // 30 segundos
 
     const token = localStorage.getItem('token');
-    const fechaCompleta = `${fecha}T${hora}:00`;
     const body = {
-      fecha: fechaCompleta,
+      fecha: fecha, // solo la fecha (YYYY-MM-DD)
+      hora: hora,   // solo la hora (HH:mm)
       motivo,
-      persona_asignada_id: Number(staffId),
+      id_staff: Number(staffId),
       duracion: Number(duracion)
     };
     try {
@@ -92,7 +122,7 @@ export default function CreateCita() {
 
   return (
     <>
-      <div className="p-8 max-w-md mx-auto bg-white rounded-xl shadow relative">
+  <div className="p-8 max-w-3xl w-[40%] mx-auto bg-white rounded-xl shadow relative">
         <h2 className="text-xl font-bold text-green-600 mb-4">Agendar Cita</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -133,12 +163,12 @@ export default function CreateCita() {
           </div>
           <div>
             <label className="block text-gray-700 font-semibold mb-1">Motivo</label>
-            <input
-              type="text"
+            <textarea
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Motivo de la cita"
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-green-400"
+              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-green-400 min-h-[80px] resize-vertical"
+              rows={4}
               required
             />
           </div>
@@ -165,6 +195,22 @@ export default function CreateCita() {
             Enviar
           </button>
         </form>
+        {/* Mostrar disponibilidad del staff seleccionado en texto */}
+        {staffId && (
+          <div className="mb-4 p-4 bg-gray-100 border border-gray-300 rounded text-sm">
+            <span className="font-semibold text-gray-700">Horarios ocupados del staff seleccionado:</span>
+            <ul className="list-disc ml-4 mt-1">
+              {disponibilidad.length === 0 && <li className="text-green-600">No hay horarios ocupados</li>}
+              {disponibilidad.map((oc, idx) => {
+                const inicio = format(parseISO(oc.fecha), "yyyy-MM-dd HH:mm");
+                let fin = oc.end_time ? format(parseISO(oc.end_time), "yyyy-MM-dd HH:mm") : "";
+                return (
+                  <li key={idx}>{inicio}{fin ? ` - ${fin}` : ""}</li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </div>
       {successMsg && (
         <div className="fixed z-50" style={{ right: '2rem', bottom: '2rem' }}>

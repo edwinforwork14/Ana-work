@@ -5,6 +5,7 @@ const pool = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const citaRoutes = require("./routes/citaRoutes");
 const staffRoutes = require('./routes/staffRoutes');
+const notificacionRoutes = require("./routes/notificacionRoutes");
 
 const rateLimit = require('express-rate-limit');
 const limiter = rateLimit({
@@ -20,7 +21,9 @@ const fs = require('fs');
 const path = require('path');
 const logStream = fs.createWriteStream(path.join(__dirname, 'access.log'), { flags: 'a' });
 
-
+app.use(morgan('combined', { stream: logStream }));
+app.use(express.json());
+app.use("/api/notificaciones", notificacionRoutes);
 
 // Configura CORS para permitir solicitudes desde el frontend
 app.use(cors({
@@ -28,8 +31,7 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(morgan('combined', { stream: logStream }));
-app.use(express.json());
+
 
 //verificar si el servidor está corriendo
 app.get("/ping", (req, res) => {
@@ -62,6 +64,5 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Error interno del servidor" });
 });
 
-console.log('JWT_SECRET:', process.env.JWT_SECRET);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`));

@@ -5,8 +5,20 @@ const pool = require('../config/db');
 const Cita = {
   // Obtener intervalos ocupados solo de citas confirmadas para un staff
   getStaffOcupadoConfirmadas: async (staffId) => {
-    const q = `SELECT fecha, end_time FROM citas WHERE persona_asignada_id = $1 AND estado = 'confirmada'`;
+    const q = `SELECT fecha, end_time FROM citas WHERE id_staff = $1 AND estado = 'confirmada'`;
     const result = await pool.query(q, [staffId]);
+    return result.rows;
+  },
+
+    // Listar todas las citas de un staff por estado
+  findAllByStaffAndEstado: async (id_staff, estado) => {
+    let q = 'SELECT * FROM citas WHERE id_staff = $1';
+    const params = [id_staff];
+    if (estado && estado !== 'todas') {
+      q += ' AND estado = $2';
+      params.push(estado);
+    }
+    const result = await pool.query(q, params);
     return result.rows;
   },
   // Listar todas las citas (solo admin y staff)
@@ -20,18 +32,19 @@ const Cita = {
         fecha,
         motivo,
         estado = 'pendiente',
-        persona_asignada_id,
+        id_staff,
         recordatorio_enviado = false,
         duracion = 60 // minutos por defecto
       } = data;
 
       // Validar que se asigna staff
-      if (!persona_asignada_id) {
+
+      if (!id_staff) {
         return { error: 'Debes seleccionar un staff para agendar la cita', success: false };
       }
 
       // Validar que el staff existe y tiene rol "staff"
-      const staffRes = await pool.query('SELECT rol FROM usuarios WHERE id = $1', [persona_asignada_id]);
+      const staffRes = await pool.query('SELECT rol FROM usuarios WHERE id = $1', [id_staff]);
       if (!staffRes.rows[0] || staffRes.rows[0].rol !== 'staff') {
         return { error: 'El staff seleccionado no es válido', success: false };
       }
@@ -40,17 +53,38 @@ const Cita = {
       const startTime = new Date(fecha);
       const endTime = new Date(startTime.getTime() + duracion * 60000);
 
+      // Validar que no exista una cita confirmada en ese horario
+      const overlapRes = await pool.query(
+        `SELECT 1 FROM citas
+         WHERE id_staff = $1
+           AND estado = 'confirmada'
+           AND (fecha < $3 AND end_time > $2)`,
+        [id_staff, startTime, endTime]
+      );
+      if (overlapRes.rows.length > 0) {
+        return { error: 'Ya existe una cita confirmada en ese horario', success: false };
+      }
+
       const result = await pool.query(
-        `INSERT INTO citas (id_usuario, fecha, end_time, motivo, estado, persona_asignada_id, recordatorio_enviado, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
-        [id_usuario, startTime, endTime, motivo, estado, persona_asignada_id, recordatorio_enviado]
+  `INSERT INTO citas (id_usuario, fecha, end_time, motivo, estado, id_staff, recordatorio_enviado, created_at)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
+  [id_usuario, startTime, endTime, motivo, estado, id_staff, recordatorio_enviado]
       );
       return { cita: result.rows[0], success: true, mensaje: 'Cita agendada exitosamente' };
   },
 
-  // Buscar cita por ID
+  // Buscar cita por ID (con JOIN a usuarios y staff)
   findById: async (id) => {
-    const result = await pool.query('SELECT * FROM citas WHERE id = $1', [id]);
+    const q = `
+      SELECT c.*, 
+             u.nombre AS nombre_usuario, u.email AS email_usuario, u.telefono AS telefono_usuario,
+             s.nombre AS nombre_staff, s.email AS email_staff, s.telefono AS telefono_staff
+      FROM citas c
+      JOIN usuarios u ON c.id_usuario = u.id
+      LEFT JOIN usuarios s ON c.id_staff = s.id
+      WHERE c.id = $1
+    `;
+    const result = await pool.query(q, [id]);
     return result.rows[0];
   },
 
@@ -61,14 +95,14 @@ const Cita = {
   },
 
     // Consultar disponibilidad del staff (intervalos ocupados)
-    getStaffOcupado: async (persona_asignada_id, fechaInicio, fechaFin) => {
+    getStaffOcupado: async (id_staff, fechaInicio, fechaFin) => {
       const result = await pool.query(
         `SELECT fecha, end_time
          FROM citas
-         WHERE persona_asignada_id = $1
+         WHERE id_staff = $1
            AND estado NOT IN ('cancelada','completada')
            AND fecha >= $2 AND fecha < $3`,
-        [persona_asignada_id, fechaInicio, fechaFin]
+        [id_staff, fechaInicio, fechaFin]
       );
       return result.rows;
     },
@@ -100,6 +134,7 @@ update: async (id, data) => {
 
   // Si no hay cambios reales
   if (!hayCambios) {
+    console.log("[Cita.update] Sin cambios detectados");
     return { actualizado: false, mensaje: "Sin cambios: los valores son iguales o no hay campos válidos." };
   }
 
@@ -114,7 +149,12 @@ update: async (id, data) => {
     RETURNING *;
   `;
 
+  // DEBUG: Log query and values
+  console.log("[Cita.update] query:", q);
+  console.log("[Cita.update] values:", values);
+
   const result = await pool.query(q, values);
+  console.log("[Cita.update] result:", result.rows[0]);
   return { actualizado: true, cita: result.rows[0] };
 },
 
@@ -129,16 +169,16 @@ update: async (id, data) => {
       const citaRes = await pool.query('SELECT * FROM citas WHERE id = $1', [id]);
       const cita = citaRes.rows[0];
       if (!cita) return { error: 'Cita no encontrada', success: false };
-      const { persona_asignada_id, fecha, end_time } = cita;
+  const { id_staff, fecha, end_time } = cita;
 
-      // Validar solapamiento solo con citas confirmadas
+      // Validar solapamiento solo con citas confirmadas (cualquier cruce)
       const overlapRes = await pool.query(
         `SELECT 1 FROM citas
-         WHERE persona_asignada_id = $1
+         WHERE id_staff = $1
            AND estado = 'confirmada'
-           AND (fecha, end_time) OVERLAPS ($2, $3)
-           AND id <> $4`,
-        [persona_asignada_id, fecha, end_time, id]
+           AND id <> $4
+           AND (fecha < $3 AND end_time > $2)`,
+        [id_staff, fecha, end_time, id]
       );
       if (overlapRes.rows.length > 0) {
         return { error: 'Ya existe una cita confirmada en ese horario', success: false };

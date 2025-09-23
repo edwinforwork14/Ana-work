@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const Cita = require('../models/Cita');
 const citaController = require('../controllers/citaController');
 const { authMiddleware } = require('../middlewares/authMiddleware');
-const { allowRoles } = require('../middlewares/permissionMiddleware');
+const { allowRoles, onlyOwnStaffCita, onlyOwnClienteCita, onlyAdmin } = require('../middlewares/permissionMiddleware');
 
 // Proteger todas las rutas con JWT
 
@@ -19,13 +18,22 @@ router.get('/:id', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), ci
 // Obtener todas las citas de un usuario específico (solo staff y admin)
 router.get('/usuario/:id', authMiddleware, allowRoles(['staff', 'admin']), citaController.getCitasByUsuario);
 
-// Actualizar cita: solo staff y admin cliente solo puede actualizar sus propias citas pero no el estado y la persona asignada
-router.put('/:id', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), citaController.updateCita);
+// Actualizar cita: cliente solo la suya, staff solo la suya, admin cualquiera
+router.put('/:id', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), onlyOwnStaffCita, onlyOwnClienteCita, citaController.updateCita);
 
 // Eliminar cita: solo admin
-router.delete('/:id', authMiddleware, allowRoles(['admin']), citaController.deleteCita);
+router.delete('/:id', authMiddleware, onlyAdmin, citaController.deleteCita);
 
 // Confirmar cita: solo staff y admin
 router.post('/:id/confirmar', authMiddleware, allowRoles(['staff', 'admin']), citaController.confirmarCita);
+
+// Cancelar cita: cliente solo la suya, staff solo la suya, admin cualquiera
+router.post('/:id/cancelar', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), onlyOwnStaffCita, onlyOwnClienteCita, citaController.updateCita);
+
+// Completar cita: staff solo la suya, admin cualquiera
+router.post('/:id/completar', authMiddleware, allowRoles(['staff', 'admin']), onlyOwnStaffCita, citaController.updateCita);
+
+// Marcar cita como pendiente: staff solo la suya, admin cualquiera
+router.post('/:id/pendiente', authMiddleware, allowRoles(['staff', 'admin']), onlyOwnStaffCita, citaController.updateCita);
 
 module.exports = router;
