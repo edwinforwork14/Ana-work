@@ -1,3 +1,4 @@
+
 const express = require('express');
 const router = express.Router();
 const citaController = require('../controllers/citaController');
@@ -13,6 +14,9 @@ const { allowRoles } = require('../middlewares/permissionMiddleware');
 
 // Listar todos los staff (accesible para cliente, staff y admin)
 router.get('/', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), staffController.getAllStaff);
+
+// Ver todas las citas pendientes asignadas al staff autenticado
+router.get('/alertas', authMiddleware, allowRoles(['staff']), staffController.getAlertasPendientesStaff);
 
 // Obtener citas del staff autenticado o de cualquier staff (admin) por estado
 router.get('/citas', authMiddleware, allowRoles(['staff', 'admin']), staffController.getCitasByStaffAndEstado);

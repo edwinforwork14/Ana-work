@@ -1,3 +1,13 @@
+// Obtener todas las citas pendientes asignadas al staff autenticado
+exports.getAlertasPendientesStaff = async (req, res) => {
+  try {
+    const Cita = require('../models/Cita');
+    const citasPendientes = await Cita.findAllByStaffAndEstado(req.user.id, 'pendiente');
+    res.json({ citas: citasPendientes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
 const Usuario = require('../models/Usuario');
 // Listar todos los usuarios con rol staff
 exports.getAllStaff = async (req, res) => {

@@ -44,10 +44,29 @@ exports.getAllCitas = async (req, res) => {
 exports.getCitaById = async (req, res) => {
   try {
     const cita = await Cita.findById(req.params.id);
-  if (!cita || cita.id_usuario !== req.user.id) {
+    if (!cita) {
       return res.status(404).json({ error: "Cita no encontrada" });
     }
-    res.json(cita);
+    // Admin puede ver cualquier cita
+    if (req.user.rol === 'admin') {
+      return res.json(cita);
+    }
+    // Staff solo puede ver citas donde es el staff asignado
+    if (req.user.rol === 'staff') {
+      if (cita.id_staff !== req.user.id) {
+        return res.status(403).json({ error: "No tienes permiso para ver esta cita" });
+      }
+      return res.json(cita);
+    }
+    // Cliente solo puede ver su propia cita
+    if (req.user.rol === 'cliente') {
+      if (cita.id_usuario !== req.user.id) {
+        return res.status(403).json({ error: "No tienes permiso para ver esta cita" });
+      }
+      return res.json(cita);
+    }
+    // Otros roles no pueden acceder
+    return res.status(403).json({ error: "No tienes permiso para ver esta cita" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -67,6 +86,15 @@ exports.updateCita = async (req, res) => {
         return res.status(403).json({ error: "Solo puedes cancelar citas pendientes" });
       }
       data = { estado: 'cancelada' };
+      // Notificación de cancelación para el staff
+      const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (cita.nombre_usuario || 'Usuario');
+      await Notificacion.crear({
+        id_usuario: cita.id_usuario,
+        id_staff: cita.id_staff,
+        id_cita: cita.id,
+        tipo: "cita_cancelada",
+        mensaje: `La cita (ID: ${cita.id}) fue cancelada por ${nombreCreador}.`
+      });
     } else if (req.originalUrl.endsWith('/completar')) {
       if (cita.estado !== 'confirmada') {
         return res.status(403).json({ error: "Solo puedes completar citas confirmadas" });
@@ -109,7 +137,7 @@ exports.updateCita = async (req, res) => {
     const cambioHora = req.body.hora && req.body.hora !== cita.hora;
     if (cambioMotivo || cambioFecha || cambioHora) {
       // Obtener nombre del usuario creador de la cita
-      let nombreCreador = req.user && req.user.nombre ? req.user.nombre : (cita.nombre_usuario || 'Usuario');
+      const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (cita.nombre_usuario || 'Usuario');
       let mensaje = `La cita (ID: ${cita.id}) de ${nombreCreador} fue `;
       if (cambioMotivo) mensaje += `modificada en el motivo. `;
       if (cambioFecha) mensaje += `Nueva fecha: ${req.body.fecha}. `;
@@ -157,7 +185,8 @@ exports.createCita = async (req, res) => {
   // Validar datos de entrada
   const { error } = citaSchema.validate(req.body);
   if (error) {
-    return res.status(400).json({ error: error.details[0].message, success: false });
+    const customMsg = error.details[0].context && error.details[0].context.message;
+    return res.status(400).json({ error: customMsg || error.details[0].message, success: false });
   }
   try {
     let data = { ...req.body, id_usuario: req.user.id };
@@ -169,13 +198,16 @@ exports.createCita = async (req, res) => {
     const result = await Cita.create(data);
     if (result && result.success) {
       // Crear notificación para el staff asignado (enlazando usuario, staff y cita)
+      const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (result.cita.nombre_usuario || 'Usuario');
       await Notificacion.crear({
         id_usuario: req.user.id, // el cliente
         id_staff: req.body.id_staff,
         id_cita: result.cita.id,
         tipo: "cita_nueva",
-        mensaje: `Nueva cita agendada por ${req.user.nombre} para ${req.body.fecha}`
+        mensaje: `Nueva cita agendada por ${nombreCreador} para ${req.body.fecha}`
       });
+
+      // Ya no se crea notificación de alerta_pendiente para citas pendientes
       res.status(201).json({ cita: result.cita, mensaje: result.mensaje || "Cita agendada exitosamente", success: true });
     } else if (result && result.error) {
       res.status(400).json({ error: result.error, success: false });

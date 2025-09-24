@@ -1,3 +1,4 @@
+const { parse, getDay, set, isWithinInterval } = require('date-fns');
 // src/validators/schemas.js
 const Joi = require('joi');
 
@@ -24,11 +25,51 @@ const loginSchema = Joi.object({
 // Esquema para crear cita
 const citaSchema = Joi.object({
   fecha: Joi.date().iso().required(),
-  hora: Joi.string().required(),
+  hora: Joi.string().required().custom((value, helpers) => {
+    // Validar formato HH:mm
+    if (!/^\d{2}:\d{2}$/.test(value)) {
+      return helpers.error('any.invalid');
+    }
+    const [h, m] = value.split(':').map(Number);
+    if (h < 0 || h > 23 || m < 0 || m > 59) {
+      return helpers.error('any.invalid');
+    }
+    return value;
+  }),
   motivo: Joi.string().min(3).max(255).required(),
   id_staff: Joi.number().integer().required(),
   estado: Joi.string().valid('pendiente', 'confirmada', 'cancelada', 'completada').optional(),
-  duracion: Joi.number().integer().min(1).max(480).optional() // minutos, ajusta el rango si lo deseas
+  duracion: Joi.number().integer().min(1).max(480).optional(),
+}).custom((data, helpers) => {
+  // Validar día y horario permitido usando date-fns
+  try {
+    const fechaObj = parse(data.fecha, 'yyyy-MM-dd', new Date());
+    const dia = getDay(fechaObj); // 0=domingo, 1=lunes, ...
+    const [h, m] = data.hora.split(':').map(Number);
+    const citaDateTime = set(fechaObj, { hours: h, minutes: m, seconds: 0, milliseconds: 0 });
+
+    if (dia === 0) {
+      return helpers.error('any.invalid', { message: 'No se pueden agendar citas los domingos.' });
+    }
+    if (dia >= 1 && dia <= 5) {
+      // Lunes a viernes: 7am a 6pm
+      const inicio = set(fechaObj, { hours: 7, minutes: 0, seconds: 0, milliseconds: 0 });
+      const fin = set(fechaObj, { hours: 18, minutes: 0, seconds: 0, milliseconds: 0 });
+      if (!isWithinInterval(citaDateTime, { start: inicio, end: fin })) {
+        return helpers.error('any.invalid', { message: 'Horario permitido: lunes a viernes de 7:00 a 18:00.' });
+      }
+    } else if (dia === 6) {
+      // Sábado: 7am a 2pm
+      const inicio = set(fechaObj, { hours: 7, minutes: 0, seconds: 0, milliseconds: 0 });
+      const fin = set(fechaObj, { hours: 14, minutes: 0, seconds: 0, milliseconds: 0 });
+      if (!isWithinInterval(citaDateTime, { start: inicio, end: fin })) {
+        return helpers.error('any.invalid', { message: 'Horario permitido: sábados de 7:00 a 14:00.' });
+      }
+    }
+    return data;
+  } catch (e) {
+    return helpers.error('any.invalid', { message: 'Fecha u hora inválida.' });
+  }
 });
 
 module.exports = {
