@@ -15,19 +15,20 @@ exports.getCitasByUsuario = async (req, res) => {
 // Obtener todas las citas del usuario autenticado
 exports.getAllCitas = async (req, res) => {
   try {
+    // 1. Actualizar citas confirmadas y pasadas a completada
+    const now = new Date();
+    await Cita.marcarCompletadasAutomatico(now);
+
     let citas;
     const estado = req.query.estado;
     if (req.user.rol === 'admin') {
       citas = await Cita.findAll();
-      // Si se pasa estado, filtrar en memoria
       if (estado && estado !== 'todas') {
         citas = citas.filter(c => c.estado === estado);
       }
     } else if (req.user.rol === 'staff') {
-      // staff solo ve sus propias citas asignadas
       citas = await Cita.findAllByStaffAndEstado(req.user.id, estado);
     } else {
-      // cliente: filtrar por estado si se pasa
       if (estado && estado !== 'todas') {
         citas = (await Cita.findAllByUsuario(req.user.id)).filter(c => c.estado === estado);
       } else {
@@ -47,26 +48,8 @@ exports.getCitaById = async (req, res) => {
     if (!cita) {
       return res.status(404).json({ error: "Cita no encontrada" });
     }
-    // Admin puede ver cualquier cita
-    if (req.user.rol === 'admin') {
-      return res.json(cita);
-    }
-    // Staff solo puede ver citas donde es el staff asignado
-    if (req.user.rol === 'staff') {
-      if (cita.id_staff !== req.user.id) {
-        return res.status(403).json({ error: "No tienes permiso para ver esta cita" });
-      }
-      return res.json(cita);
-    }
-    // Cliente solo puede ver su propia cita
-    if (req.user.rol === 'cliente') {
-      if (cita.id_usuario !== req.user.id) {
-        return res.status(403).json({ error: "No tienes permiso para ver esta cita" });
-      }
-      return res.json(cita);
-    }
-    // Otros roles no pueden acceder
-    return res.status(403).json({ error: "No tienes permiso para ver esta cita" });
+    // La lógica de permisos se maneja en permissionMiddleware.js
+    return res.json(cita);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -80,39 +63,59 @@ exports.updateCita = async (req, res) => {
       return res.status(404).json({ error: "Cita no encontrada" });
     }
     let data;
-    // Centralizar lógica de cambio de estado según la ruta
+    // La lógica de permisos y validación de estado se maneja en permissionMiddleware.js
     if (req.originalUrl.endsWith('/cancelar')) {
-      if (cita.estado !== 'pendiente') {
-        return res.status(403).json({ error: "Solo puedes cancelar citas pendientes" });
-      }
       data = { estado: 'cancelada' };
-      // Notificación de cancelación para el staff
       const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (cita.nombre_usuario || 'Usuario');
-      await Notificacion.crear({
-        id_usuario: cita.id_usuario,
-        id_staff: cita.id_staff,
-        id_cita: cita.id,
-        tipo: "cita_cancelada",
-        mensaje: `La cita (ID: ${cita.id}) fue cancelada por ${nombreCreador}.`
-      });
+      // Notificación para el staff (si la acción la realiza el cliente)
+      if (req.user.rol === 'cliente') {
+        await Notificacion.crear({
+          id_usuario: cita.id_usuario,
+          id_staff: cita.id_staff,
+          id_cita: cita.id,
+          tipo: "cita_cancelada",
+          mensaje: `La cita (ID: ${cita.id}) fue cancelada por ${nombreCreador}.`,
+          from: 'cliente'
+        });
+      }
+      // Notificación para el cliente (si la acción la realiza el staff)
+      if (req.user.rol === 'staff') {
+        await Notificacion.crear({
+          id_usuario: cita.id_usuario,
+          id_staff: cita.id_staff,
+          id_cita: cita.id,
+          tipo: "cita_cancelada_cliente",
+          mensaje: `Tu cita (ID: ${cita.id}) fue cancelada por el staff ${req.user.nombre || 'Staff'}.`,
+          from: 'staff'
+        });
+      }
     } else if (req.originalUrl.endsWith('/completar')) {
-      if (cita.estado !== 'confirmada') {
-        return res.status(403).json({ error: "Solo puedes completar citas confirmadas" });
-      }
       data = { estado: 'completada' };
+      // Notificación para el cliente si la acción la realiza el staff
+      if (req.user.rol === 'staff') {
+        await Notificacion.crear({
+          id_usuario: cita.id_usuario,
+          id_staff: cita.id_staff,
+          id_cita: cita.id,
+          tipo: "cita_completada_cliente",
+          mensaje: `Tu cita (ID: ${cita.id}) fue completada por el staff ${req.user.nombre || 'Staff'}.`,
+          from: 'staff'
+        });
+      }
     } else if (req.originalUrl.endsWith('/pendiente')) {
-      if (["completada", "cancelada"].includes(cita.estado)) {
-        return res.status(403).json({ error: "No puedes volver a pendiente una cita completada o cancelada" });
-      }
       data = { estado: 'pendiente' };
+      // Notificación para el cliente si la acción la realiza el staff
+      if (req.user.rol === 'staff') {
+        await Notificacion.crear({
+          id_usuario: cita.id_usuario,
+          id_staff: cita.id_staff,
+          id_cita: cita.id,
+          tipo: "cita_pendiente_cliente",
+          mensaje: `Tu cita (ID: ${cita.id}) fue marcada como pendiente por el staff ${req.user.nombre || 'Staff'}.`,
+          from: 'staff'
+        });
+      }
     } else if (req.user.rol === 'cliente') {
-      // El cliente solo puede modificar su propia cita si está en pendiente
-      if (cita.id_usuario !== req.user.id) {
-        return res.status(403).json({ error: "No tienes permiso para modificar esta cita" });
-      }
-      if (cita.estado !== 'pendiente') {
-        return res.status(403).json({ error: "Solo puedes modificar una cita si está en estado pendiente" });
-      }
       data = { ...req.body };
       if ('estado' in data) {
         delete data.estado;
@@ -121,13 +124,8 @@ exports.updateCita = async (req, res) => {
         delete data.id_staff;
       }
     } else if (req.user.rol === 'admin') {
-      // Admin puede modificar cualquier cita
       data = { estado: req.body.estado };
     } else if (req.user.rol === 'staff') {
-      // Staff solo puede modificar citas que le pertenecen
-      if (cita.id_staff !== req.user.id) {
-        return res.status(403).json({ error: "No tienes permiso para modificar esta cita" });
-      }
       data = { estado: req.body.estado };
     }
 
@@ -147,7 +145,8 @@ exports.updateCita = async (req, res) => {
         id_staff: cita.id_staff,
         id_cita: cita.id,
         tipo: "cita_reagendada",
-        mensaje: mensaje.trim()
+        mensaje: mensaje.trim(),
+        from: req.user.rol === 'staff' ? 'staff' : 'cliente'
       };
       console.log('Notificacion.crear', notifData);
       await Notificacion.crear(notifData);
@@ -183,6 +182,7 @@ exports.deleteCita = async (req, res) => {
 
 exports.createCita = async (req, res) => {
   // Validar datos de entrada
+  console.log('Datos recibidos para crear cita:', req.body);
   const { error } = citaSchema.validate(req.body);
   if (error) {
     const customMsg = error.details[0].context && error.details[0].context.message;
@@ -198,16 +198,15 @@ exports.createCita = async (req, res) => {
     const result = await Cita.create(data);
     if (result && result.success) {
       // Crear notificación para el staff asignado (enlazando usuario, staff y cita)
-      const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (result.cita.nombre_usuario || 'Usuario');
+      const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (result.cita.nombre_usuario || req.user.email || 'Usuario');
       await Notificacion.crear({
-        id_usuario: req.user.id, // el cliente
-        id_staff: req.body.id_staff,
-        id_cita: result.cita.id,
-        tipo: "cita_nueva",
-        mensaje: `Nueva cita agendada por ${nombreCreador} para ${req.body.fecha}`
+  id_usuario: req.user.id, // el cliente
+  id_staff: req.body.id_staff,
+  id_cita: result.cita.id,
+  tipo: "cita_nueva",
+  mensaje: `Nueva cita agendada por ${nombreCreador} para ${req.body.fecha}`,
+  from: req.user.rol === 'staff' ? 'staff' : 'cliente'
       });
-
-      // Ya no se crea notificación de alerta_pendiente para citas pendientes
       res.status(201).json({ cita: result.cita, mensaje: result.mensaje || "Cita agendada exitosamente", success: true });
     } else if (result && result.error) {
       res.status(400).json({ error: result.error, success: false });
@@ -227,6 +226,16 @@ exports.confirmarCita = async (req, res) => {
   try {
     const result = await Cita.confirmarCita(req.params.id);
     if (result.success) {
+      // Crear notificación para el cliente cuando la cita es confirmada
+      const cita = result.cita;
+      await Notificacion.crear({
+        id_usuario: cita.id_usuario,
+        id_staff: cita.id_staff,
+        id_cita: cita.id,
+        tipo: "cita_confirmada_cliente",
+        mensaje: `Tu cita para el ${cita.fecha} ha sido confirmada por el staff ${req.user.nombre || 'Staff'}.`,
+        from: 'staff'
+      });
       res.json({ cita: result.cita, mensaje: result.mensaje, success: true });
     } else {
       res.status(400).json({ error: result.error, success: false });

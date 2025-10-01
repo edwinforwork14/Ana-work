@@ -66,7 +66,7 @@ export default function CreateCita() {
       return;
     }
   setIsBlocked(true);
-  setTimeout(() => setIsBlocked(false), 30000); // 30 segundos
+  setTimeout(() => setIsBlocked(false), 10000); // 10 segundos
 
     const token = localStorage.getItem('token');
     const body = {
@@ -121,10 +121,12 @@ export default function CreateCita() {
   }, [errorMsg]);
 
   return (
-    <>
-  <div className="p-8 max-w-3xl w-[40%] mx-auto bg-white rounded-xl shadow relative">
+    <div className="flex flex-row gap-8 justify-center">
+      {/* Formulario */}
+      <div className="p-8 max-w-3xl w-[40vw] min-w-[340px] bg-white rounded-xl shadow relative">
         <h2 className="text-xl font-bold text-green-600 mb-4">Agendar Cita</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* ...existing code... */}
           <div>
             <label className="block text-gray-700 font-semibold mb-1">Staff</label>
             <select
@@ -212,6 +214,19 @@ export default function CreateCita() {
           </div>
         )}
       </div>
+      {/* Bloque de horarios permitidos */}
+      <div className="p-8 w-[320px] min-w-[220px] bg-blue-50 border border-blue-200 rounded-xl shadow h-fit self-start">
+        <h3 className="text-lg font-bold text-blue-700 mb-2">Horarios permitidos</h3>
+        <ul className="list-disc ml-4 text-blue-900 text-sm">
+          <li>Lunes a viernes: <b>7:00</b> a <b>18:00</b></li>
+          <li>Sábados: <b>7:00</b> a <b>14:00</b></li>
+          <li className="text-red-600">Domingos: <b>No disponible</b></li>
+        </ul>
+        <div className="mt-4 text-xs text-blue-700">
+          <b>Nota:</b> Si seleccionas un horario fuera de estos rangos, el sistema mostrará un error y no permitirá agendar la cita.
+        </div>
+      </div>
+      {/* Mensajes flotantes */}
       {successMsg && (
         <div className="fixed z-50" style={{ right: '2rem', bottom: '2rem' }}>
           <div className="bg-green-600 text-white px-4 py-2 rounded shadow-lg text-sm animate-pulse">
@@ -233,6 +248,6 @@ export default function CreateCita() {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

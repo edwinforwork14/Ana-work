@@ -41,9 +41,14 @@ const citaSchema = Joi.object({
   estado: Joi.string().valid('pendiente', 'confirmada', 'cancelada', 'completada').optional(),
   duracion: Joi.number().integer().min(1).max(480).optional(),
 }).custom((data, helpers) => {
-  // Validar día y horario permitido usando date-fns
+  // Validar día y horario permitido usando date-fns, forzando la hora a mediodía para evitar desfases de zona horaria
   try {
-    const fechaObj = parse(data.fecha, 'yyyy-MM-dd', new Date());
+    let fechaObj = new Date(data.fecha);
+    if (isNaN(fechaObj.getTime())) {
+      return helpers.error('any.invalid', { message: 'Fecha inválida.' });
+    }
+    // Forzar hora a mediodía para evitar desfase UTC/local
+    fechaObj = set(fechaObj, { hours: 12, minutes: 0, seconds: 0, milliseconds: 0 });
     const dia = getDay(fechaObj); // 0=domingo, 1=lunes, ...
     const [h, m] = data.hora.split(':').map(Number);
     const citaDateTime = set(fechaObj, { hours: h, minutes: m, seconds: 0, milliseconds: 0 });

@@ -3,10 +3,20 @@ const pool = require('../config/db');
 
 // ...existing code...
 const Cita = {
-  // Obtener intervalos ocupados solo de citas confirmadas para un staff
+  // Marcar automáticamente como completadas las citas confirmadas cuyo end_time ya pasó
+  marcarCompletadasAutomatico: async (now = new Date()) => {
+    // Solo citas confirmadas y end_time menor a ahora
+    await pool.query(
+      `UPDATE citas SET estado = 'completada', updated_at = NOW()
+       WHERE estado = 'confirmada' AND end_time < $1`,
+      [now]
+    );
+  },
+  // Obtener intervalos ocupados solo de citas confirmadas para un staff (solo futuras)
   getStaffOcupadoConfirmadas: async (staffId) => {
-    const q = `SELECT fecha, end_time FROM citas WHERE id_staff = $1 AND estado = 'confirmada'`;
-    const result = await pool.query(q, [staffId]);
+    const now = new Date();
+    const q = `SELECT fecha, end_time FROM citas WHERE id_staff = $1 AND estado = 'confirmada' AND end_time > $2`;
+    const result = await pool.query(q, [staffId, now]);
     return result.rows;
   },
 
@@ -168,12 +178,16 @@ update: async (id, data) => {
       // Obtener la cita actual
       const citaRes = await pool.query('SELECT * FROM citas WHERE id = $1', [id]);
       const cita = citaRes.rows[0];
-      if (!cita) return { error: 'Cita no encontrada', success: false };
-  const { id_staff, fecha, end_time } = cita;
+      if (!cita) {
+        console.log(`[confirmarCita] Cita no encontrada para id=${id}`);
+        return { error: 'Cita no encontrada', success: false };
+      }
+      const { id_staff, fecha, end_time, estado } = cita;
+      console.log(`[confirmarCita] Intentando confirmar cita id=${id}, estado=${estado}, staff=${id_staff}, fecha=${fecha}, end_time=${end_time}`);
 
       // Validar solapamiento solo con citas confirmadas (cualquier cruce)
       const overlapRes = await pool.query(
-        `SELECT 1 FROM citas
+        `SELECT * FROM citas
          WHERE id_staff = $1
            AND estado = 'confirmada'
            AND id <> $4
@@ -181,6 +195,7 @@ update: async (id, data) => {
         [id_staff, fecha, end_time, id]
       );
       if (overlapRes.rows.length > 0) {
+        console.log(`[confirmarCita] Solapamiento detectado con citas:`, overlapRes.rows);
         return { error: 'Ya existe una cita confirmada en ese horario', success: false };
       }
 
@@ -189,6 +204,7 @@ update: async (id, data) => {
         `UPDATE citas SET estado = 'confirmada', updated_at = NOW() WHERE id = $1 RETURNING *`,
         [id]
       );
+      console.log(`[confirmarCita] Cita confirmada id=${id}`);
       return { cita: result.rows[0], success: true, mensaje: 'Cita confirmada' };
     },
 };

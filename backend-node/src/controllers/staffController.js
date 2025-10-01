@@ -75,7 +75,9 @@ exports.getDisponibilidadStaff = async (req, res) => {
     return res.status(400).json({ error: 'Parámetro id_staff inválido o faltante' });
   }
   try {
-    // Solo citas confirmadas
+    // Actualizar citas confirmadas y pasadas a completada antes de consultar disponibilidad
+    await Cita.marcarCompletadasAutomatico();
+    // Solo citas confirmadas futuras
     const ocupados = await Cita.getStaffOcupadoConfirmadas(id_staff);
     res.json({ ocupados });
   } catch (error) {

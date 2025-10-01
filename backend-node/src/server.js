@@ -48,6 +48,7 @@ app.use((req, res, next) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/citas", citaRoutes);
 app.use('/api/staff', staffRoutes);
+app.use("/api/notificaciones", notificacionRoutes);
 
 // ping
 app.get("/", (_, res) => res.send("API OK"));

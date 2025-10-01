@@ -22,7 +22,6 @@ function Login({ onLoginSuccess }) {
 				// Autenticación exitosa, guarda el token JWT
 				if (data.token) {
 					localStorage.setItem('token', data.token);
-					console.log('Token guardado:', data.token);
 					setLoginSuccess(true);
 					if (onLoginSuccess) onLoginSuccess();
 					setTimeout(() => {
