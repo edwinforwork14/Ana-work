@@ -105,7 +105,9 @@ const Cita = {
   },
 
     // Consultar disponibilidad del staff (intervalos ocupados)
+    // Consultar disponibilidad completa: bloques libres y ocupados
     getStaffOcupado: async (id_staff, fechaInicio, fechaFin) => {
+      // 1. Obtener citas ocupadas en el rango
       const result = await pool.query(
         `SELECT fecha, end_time
          FROM citas
@@ -114,7 +116,37 @@ const Cita = {
            AND fecha >= $2 AND fecha < $3`,
         [id_staff, fechaInicio, fechaFin]
       );
-      return result.rows;
+      const ocupadas = result.rows;
+
+      // 2. Generar bloques posibles según reglas de schemas.js
+      const { getDay, set } = require('date-fns');
+      const bloques = [];
+      const startDate = new Date(fechaInicio);
+      const endDate = new Date(fechaFin);
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dia = getDay(d); // 0=domingo, 1=lunes, ...
+        let horarios = [];
+        if (dia === 0) continue; // domingo no hay bloques
+        if (dia >= 1 && dia <= 5) {
+          // Lunes a viernes: 7am a 18pm
+          horarios = Array.from({length: 12}, (_, i) => 7 + i); // 7 a 18
+        } else if (dia === 6) {
+          // Sábado: 7am a 14pm
+          horarios = Array.from({length: 8}, (_, i) => 7 + i); // 7 a 14
+        }
+        for (const h of horarios) {
+          const blockStart = set(new Date(d), { hours: h, minutes: 0, seconds: 0, milliseconds: 0 });
+          const blockEnd = set(new Date(d), { hours: h+1, minutes: 0, seconds: 0, milliseconds: 0 });
+          // Verificar si está ocupado
+          const ocupado = ocupadas.some(o => {
+            const oStart = new Date(o.fecha);
+            const oEnd = new Date(o.end_time);
+            return blockStart < oEnd && blockEnd > oStart;
+          });
+          bloques.push({ start: blockStart, end: blockEnd, ocupado });
+        }
+      }
+      return bloques;
     },
   // Actualizar cita
 update: async (id, data) => {

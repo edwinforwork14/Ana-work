@@ -18,7 +18,8 @@ export default function CreateCita() {
   // Consultar disponibilidad del staff seleccionado
   useEffect(() => {
     if (staffId) {
-      const url = `http://localhost:3000/api/staff/disponibilidad?id_staff=${staffId}`;
+      // Consultar solo los horarios ocupados usando la nueva ruta
+      const url = `http://localhost:3000/api/staff/ocupados?id_staff=${staffId}&desde=2025-10-01&hasta=2025-10-31`;
       const token = localStorage.getItem('token');
       fetch(url, {
         headers: {

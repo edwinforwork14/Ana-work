@@ -9,6 +9,9 @@ const { authMiddleware, authorize } = require("../middlewares/authMiddleware");
 router.post("/register", auth.register);
 router.post("/login", auth.login);
 
+// Consultar disponibilidad del staff (admin y cliente pueden ver)
+router.get("/disponibilidad-staff/:staffId", authMiddleware, auth.disponibilidadStaff);
+
 // Obtener todos los usuarios con rol staff
 const Usuario = require("../models/Usuario");
 router.get("/staffs", async (req, res) => {
@@ -22,6 +25,9 @@ router.get("/staffs", async (req, res) => {
 
 // protegidas (ejemplo: ver perfil)
 router.get("/me", authMiddleware, auth.me);
+
+// Ruta protegida para cambio de contraseña
+router.post("/change-password", authMiddleware, auth.changePassword);
 
 // ejemplo de ruta solo para staff, admin y cliente no puede actualizar el estado de la cita solo reagendar cita
 router.get("/solo-staff", authMiddleware, authorize(["staff", "admin"]), (req, res) => {

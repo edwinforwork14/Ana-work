@@ -1,3 +1,28 @@
+// Nueva función para solo ocupados
+exports.getOcupadosStaff = async (req, res) => {
+  const { id_staff, desde, hasta } = req.query;
+  if (!id_staff || isNaN(Number(id_staff))) {
+    return res.status(400).json({ error: 'Parámetro id_staff inválido o faltante' });
+  }
+  if (!desde || !hasta) {
+    return res.status(400).json({ error: 'Faltan parámetros desde y hasta (YYYY-MM-DD)' });
+  }
+  try {
+    await Cita.marcarCompletadasAutomatico();
+    // Solo bloques ocupados en el rango
+    const ocupados = await Cita.getStaffOcupadoConfirmadas(id_staff);
+    // Filtrar por rango solicitado
+    const desdeDate = new Date(desde);
+    const hastaDate = new Date(hasta);
+    const ocupadosFiltrados = ocupados.filter(o => {
+      const oStart = new Date(o.fecha);
+      return oStart >= desdeDate && oStart < hastaDate;
+    });
+    res.json({ ocupados: ocupadosFiltrados });
+  } catch (error) {
+    res.status(500).json({ error: 'Error consultando ocupados' });
+  }
+}
 // Obtener todas las citas pendientes asignadas al staff autenticado
 exports.getAlertasPendientesStaff = async (req, res) => {
   try {
@@ -70,16 +95,18 @@ exports.getCitasByStaffAndEstado = async (req, res) => {
 };
 
 exports.getDisponibilidadStaff = async (req, res) => {
-  const { id_staff } = req.query;
+  const { id_staff, desde, hasta } = req.query;
   if (!id_staff || isNaN(Number(id_staff))) {
     return res.status(400).json({ error: 'Parámetro id_staff inválido o faltante' });
   }
+  if (!desde || !hasta) {
+    return res.status(400).json({ error: 'Faltan parámetros desde y hasta (YYYY-MM-DD)' });
+  }
   try {
-    // Actualizar citas confirmadas y pasadas a completada antes de consultar disponibilidad
     await Cita.marcarCompletadasAutomatico();
-    // Solo citas confirmadas futuras
-    const ocupados = await Cita.getStaffOcupadoConfirmadas(id_staff);
-    res.json({ ocupados });
+    // Usar el método mejorado del modelo Cita
+    const disponibilidad = await Cita.getStaffOcupado(id_staff, desde, hasta);
+    res.json({ disponibilidad });
   } catch (error) {
     res.status(500).json({ error: 'Error consultando disponibilidad' });
   }

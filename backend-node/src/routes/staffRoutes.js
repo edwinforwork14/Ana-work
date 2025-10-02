@@ -25,6 +25,9 @@ router.get('/citas', authMiddleware, allowRoles(['staff', 'admin']), staffContro
 // Disponibilidad de staff (clientes, staff y admin)
 router.get('/disponibilidad', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), staffController.getDisponibilidadStaff);
 
+// Solo bloques ocupados (legacy)
+router.get('/ocupados', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), staffController.getOcupadosStaff);
+
 
 
 module.exports = router;

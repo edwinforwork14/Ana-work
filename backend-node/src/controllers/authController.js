@@ -102,6 +102,48 @@ const authController = {
       res.status(500).json({ error: "Error obteniendo perfil" });
     }
   }
+    ,
+    // Consultar disponibilidad de staff
+    disponibilidadStaff: async (req, res) => {
+      try {
+        const staffId = req.params.staffId;
+        const { desde, hasta } = req.query;
+        if (!staffId || !desde || !hasta) {
+          return res.status(400).json({ error: "Faltan parámetros staffId, desde, hasta" });
+        }
+        const { getStaffDisponibilidad } = require("../utils/disponibilidadStaff");
+        const desdeDate = new Date(desde);
+        const hastaDate = new Date(hasta);
+        const disponibilidad = await getStaffDisponibilidad(staffId, desdeDate, hastaDate);
+        res.json({ disponibilidad });
+      } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Error consultando disponibilidad" });
+      }
+    }
+    ,
+    // Cambio de contraseña seguro
+    changePassword: async (req, res) => {
+      try {
+        const { oldPassword, newPassword } = req.body;
+        if (!oldPassword || !newPassword) {
+          return res.status(400).json({ error: "Debes enviar oldPassword y newPassword" });
+        }
+        const user = await Usuario.findById(req.user.id);
+        if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
+        const ok = await bcrypt.compare(oldPassword, user.password);
+        if (!ok) return res.status(400).json({ error: "La contraseña actual es incorrecta" });
+        if (oldPassword === newPassword) {
+          return res.status(400).json({ error: "La nueva contraseña debe ser diferente" });
+        }
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await Usuario.updatePassword(user.id, hashed);
+        res.json({ mensaje: "Contraseña actualizada correctamente" });
+      } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: "Error al cambiar la contraseña" });
+      }
+    }
 };
 
 module.exports = authController;

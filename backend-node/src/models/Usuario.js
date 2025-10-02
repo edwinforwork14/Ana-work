@@ -36,6 +36,19 @@ const Usuario = {
     const result = await pool.query(q);
     return result.rows;
   }
+    ,
+    // Buscar usuario por id (incluye password)
+    findById: async (id) => {
+      const q = `SELECT * FROM usuarios WHERE id = $1`;
+      const result = await pool.query(q, [id]);
+      return result.rows[0];
+    },
+    // Actualizar contraseña
+    updatePassword: async (id, hashedPassword) => {
+      const q = `UPDATE usuarios SET password = $1 WHERE id = $2`;
+      await pool.query(q, [hashedPassword, id]);
+      return true;
+    }
 };
 
 module.exports = Usuario;
