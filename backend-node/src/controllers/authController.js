@@ -71,16 +71,23 @@ const authController = {
     // Validar datos de entrada
     const { error } = loginSchema.validate(req.body);
     if (error) {
+      console.error("[login] Error de validación:", error.details[0].message);
       return res.status(400).json({ error: error.details[0].message });
     }
     try {
       const { email, password } = req.body;
 
       const user = await Usuario.findByEmail(email);
-      if (!user) return res.status(400).json({ error: "Credenciales inválidas" });
+      if (!user) {
+        console.error(`[login] Usuario no encontrado para email: ${email}`);
+        return res.status(400).json({ error: "Credenciales inválidas" });
+      }
 
       const ok = await bcrypt.compare(password, user.password);
-      if (!ok) return res.status(400).json({ error: "Credenciales inválidas" });
+      if (!ok) {
+        console.error(`[login] Contraseña incorrecta para email: ${email}`);
+        return res.status(400).json({ error: "Credenciales inválidas" });
+      }
 
       const payload = buildSessionPayload(user);
       const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
@@ -88,7 +95,7 @@ const authController = {
       const publico = await Usuario.findPublicById(user.id);
       res.json({ mensaje: "Login exitoso", usuario: publico, token });
     } catch (e) {
-      console.error(e);
+      console.error("[login] Error inesperado:", e);
       res.status(500).json({ error: "Error en el login" });
     }
   },

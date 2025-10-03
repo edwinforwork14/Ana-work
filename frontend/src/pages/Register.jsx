@@ -12,6 +12,8 @@ export default function Register() {
   const [tipoEmpresa, setTipoEmpresa] = useState("");
   const [industria, setIndustria] = useState("");
   const [rolEmpresa, setRolEmpresa] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,21 +36,43 @@ export default function Register() {
         body: JSON.stringify(body)
       });
       const data = await response.json();
-      if (response.ok) {
-        // Registro exitoso, puedes mostrar mensaje o redirigir
-        console.log('Registro exitoso:', data);
+      if (response.status === 201) {
+        setSuccessMsg(data.mensaje || "Registro exitoso");
+        setNombre("");
+        setEmail("");
+        setPassword("");
+        setRol("cliente");
+        setTelefono("");
+        setDireccion("");
+        setNombreEmpresa("");
+        setTipoEmpresa("");
+        setIndustria("");
+        setRolEmpresa("");
       } else {
-        // Error en el registro
-        console.error('Error de registro:', data.message || data);
+        setErrorMsg(data.error || data.message || "Error en el registro");
       }
     } catch (error) {
-      console.error('Error de red:', error);
+      setErrorMsg("Error de red");
     }
   };
 
   return (
-    <div className="max-w-lg mx-auto mt-12 p-8 bg-white shadow-lg rounded-xl">
+  <div className="max-w-lg mx-auto mt-12 p-8 bg-white shadow-lg rounded-xl relative">
       <h2 className="text-2xl font-bold text-green-600 mb-6 text-center">Registro</h2>
+      {successMsg && (
+        <div className="absolute" style={{ right: '2rem', bottom: '-2.5rem' }}>
+          <div className="bg-green-600 text-white px-4 py-2 rounded shadow-lg text-sm animate-pulse">
+            {successMsg}
+          </div>
+        </div>
+      )}
+      {errorMsg && (
+        <div className="absolute" style={{ right: '2rem', bottom: '-2.5rem' }}>
+          <div className="bg-red-600 text-white px-4 py-2 rounded shadow-lg text-sm animate-pulse">
+            {errorMsg}
+          </div>
+        </div>
+      )}
       <form className="space-y-4" onSubmit={handleSubmit}>
         <select
           value={rol}

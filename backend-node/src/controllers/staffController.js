@@ -1,24 +1,15 @@
 // Nueva función para solo ocupados
 exports.getOcupadosStaff = async (req, res) => {
-  const { id_staff, desde, hasta } = req.query;
+  const { id_staff } = req.query;
   if (!id_staff || isNaN(Number(id_staff))) {
     return res.status(400).json({ error: 'Parámetro id_staff inválido o faltante' });
   }
-  if (!desde || !hasta) {
-    return res.status(400).json({ error: 'Faltan parámetros desde y hasta (YYYY-MM-DD)' });
-  }
   try {
+    // Marcar automáticamente como completadas las citas pasadas
     await Cita.marcarCompletadasAutomatico();
-    // Solo bloques ocupados en el rango
+    // Obtener todos los horarios ocupados futuros
     const ocupados = await Cita.getStaffOcupadoConfirmadas(id_staff);
-    // Filtrar por rango solicitado
-    const desdeDate = new Date(desde);
-    const hastaDate = new Date(hasta);
-    const ocupadosFiltrados = ocupados.filter(o => {
-      const oStart = new Date(o.fecha);
-      return oStart >= desdeDate && oStart < hastaDate;
-    });
-    res.json({ ocupados: ocupadosFiltrados });
+    res.json({ ocupados });
   } catch (error) {
     res.status(500).json({ error: 'Error consultando ocupados' });
   }

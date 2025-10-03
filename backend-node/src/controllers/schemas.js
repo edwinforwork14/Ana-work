@@ -26,15 +26,25 @@ const loginSchema = Joi.object({
 const citaSchema = Joi.object({
   fecha: Joi.date().iso().required(),
   hora: Joi.string().required().custom((value, helpers) => {
+    // Permitir formato HH:mm o HH:mm AM/PM
+    let hora24 = value;
+    if (/AM|PM/i.test(hora24)) {
+      const [time, period] = hora24.split(/\s/);
+      let [h, m] = time.split(":");
+      h = parseInt(h);
+      if (/PM/i.test(period) && h < 12) h += 12;
+      if (/AM/i.test(period) && h === 12) h = 0;
+      hora24 = `${h.toString().padStart(2, "0")}:${m}`;
+    }
     // Validar formato HH:mm
-    if (!/^\d{2}:\d{2}$/.test(value)) {
+    if (!/^\d{2}:\d{2}$/.test(hora24)) {
       return helpers.error('any.invalid');
     }
-    const [h, m] = value.split(':').map(Number);
+    const [h, m] = hora24.split(':').map(Number);
     if (h < 0 || h > 23 || m < 0 || m > 59) {
       return helpers.error('any.invalid');
     }
-    return value;
+    return hora24;
   }),
   motivo: Joi.string().min(3).max(255).required(),
   id_staff: Joi.number().integer().required(),
@@ -50,7 +60,17 @@ const citaSchema = Joi.object({
     // Forzar hora a mediodía para evitar desfase UTC/local
     fechaObj = set(fechaObj, { hours: 12, minutes: 0, seconds: 0, milliseconds: 0 });
     const dia = getDay(fechaObj); // 0=domingo, 1=lunes, ...
-    const [h, m] = data.hora.split(':').map(Number);
+    // Convertir hora a 24h si viene en formato 12h
+    let hora24 = data.hora;
+    if (/AM|PM/i.test(hora24)) {
+      const [time, period] = hora24.split(/\s/);
+      let [h, m] = time.split(":");
+      h = parseInt(h);
+      if (/PM/i.test(period) && h < 12) h += 12;
+      if (/AM/i.test(period) && h === 12) h = 0;
+      hora24 = `${h.toString().padStart(2, "0")}:${m}`;
+    }
+    const [h, m] = hora24.split(':').map(Number);
     const citaDateTime = set(fechaObj, { hours: h, minutes: m, seconds: 0, milliseconds: 0 });
 
     if (dia === 0) {

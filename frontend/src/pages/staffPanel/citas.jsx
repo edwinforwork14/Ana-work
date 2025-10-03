@@ -127,7 +127,9 @@ export default function StaffCitas() {
                     <tr key={cita.id} className="border-b">
                       <td className="px-3 py-2">{cita.id}</td>
                       <td className="px-3 py-2">{cita.id_usuario}</td>
-                      <td className="px-3 py-2">{cita.fecha ? new Date(cita.fecha).toLocaleString() : ''}</td>
+                      <td className="px-3 py-2">
+                        {cita.fecha ? `${cita.fecha.slice(0,10)}${cita.hora_12h ? ' ' + cita.hora_12h : ''}` : ''}
+                      </td>
                       <td className="px-3 py-2">{cita.motivo}</td>
                       <td className="px-3 py-2">{cita.estado}</td>
                     </tr>
@@ -171,7 +173,9 @@ export default function StaffCitas() {
                       </td>
                       <td className="px-3 py-2">{cita.id}</td>
                       <td className="px-3 py-2">{cita.id_usuario}</td>
-                      <td className="px-3 py-2">{cita.fecha ? new Date(cita.fecha).toLocaleString() : ''}</td>
+                      <td className="px-3 py-2">
+                        {cita.fecha ? `${cita.fecha.slice(0,10)}${cita.hora_12h ? ' ' + cita.hora_12h : ''}` : ''}
+                      </td>
                       <td className="px-3 py-2">{cita.motivo}</td>
                       <td className="px-3 py-2">{cita.estado}</td>
                     </tr>

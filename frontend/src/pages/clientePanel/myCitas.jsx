@@ -52,7 +52,7 @@ export default function MyCitas() {
 							)}
 							{citas.map(cita => (
 								<tr key={cita.id} className="hover:bg-blue-50">
-									<td className="border px-2 py-1">{cita.fecha ? cita.fecha.slice(0, 10) : ''}</td>
+									<td className="border px-2 py-1">{cita.fecha ? `${cita.fecha.slice(0, 10)}${cita.hora_12h ? ' ' + cita.hora_12h : ''}` : ''}</td>
 									<td className="border px-2 py-1">{cita.motivo}</td>
 									<td className="border px-2 py-1">{cita.estado}</td>
 									<td className="border px-2 py-1">{cita.id_staff || '-'}</td>

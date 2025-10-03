@@ -19,7 +19,7 @@ export default function CreateCita() {
   useEffect(() => {
     if (staffId) {
       // Consultar solo los horarios ocupados usando la nueva ruta
-      const url = `http://localhost:3000/api/staff/ocupados?id_staff=${staffId}&desde=2025-10-01&hasta=2025-10-31`;
+      const url = `http://localhost:3000/api/staff/ocupados?id_staff=${staffId}`;
       const token = localStorage.getItem('token');
       fetch(url, {
         headers: {
@@ -70,9 +70,19 @@ export default function CreateCita() {
   setTimeout(() => setIsBlocked(false), 10000); // 10 segundos
 
     const token = localStorage.getItem('token');
+    // Convertir hora a formato 12h (ej: "03:30 PM") si no lo está
+    let hora12 = hora;
+    if (!/AM|PM/i.test(hora12) && hora12) {
+      let [h, m] = hora12.split(":");
+      h = parseInt(h);
+      let period = h >= 12 ? "PM" : "AM";
+      h = h % 12;
+      if (h === 0) h = 12;
+      hora12 = `${h.toString().padStart(2, "0")}:${m} ${period}`;
+    }
     const body = {
       fecha: fecha, // solo la fecha (YYYY-MM-DD)
-      hora: hora,   // solo la hora (HH:mm)
+      hora: hora12,   // hora en formato 12h
       motivo,
       id_staff: Number(staffId),
       duracion: Number(duracion)
@@ -86,16 +96,6 @@ export default function CreateCita() {
         },
         body: JSON.stringify(body)
       });
-      const data = await response.json();
-      if (response.status === 201) {
-        setSuccessMsg(data.mensaje || "Cita agendada exitosamente");
-        setFecha("");
-        setHora("");
-        setMotivo("");
-        setStaffId("");
-      } else {
-        setErrorMsg(data.error || data.message || "Error al crear cita");
-      }
     } catch (error) {
       setErrorMsg("Error de red");
     }
@@ -158,11 +158,13 @@ export default function CreateCita() {
             <label className="block text-gray-700 font-semibold mb-1">Hora</label>
             <input
               type="time"
+              placeholder="Ej: 03:30 PM"
               value={hora}
               onChange={(e) => setHora(e.target.value)}
               className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-green-400"
               required
             />
+            <span className="text-xs text-gray-500">Formato: hh:mm AM/PM</span>
           </div>
           <div>
             <label className="block text-gray-700 font-semibold mb-1">Motivo</label>

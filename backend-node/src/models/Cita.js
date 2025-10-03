@@ -37,9 +37,34 @@ const Cita = {
     return result.rows;
   },
   create: async (data) => {
+      // ...existing code...
+      // Validar que la cita no sea en un día anterior al actual
+      const now = new Date();
+      let hora24 = data.hora;
+      if (/AM|PM/i.test(hora24)) {
+        const [time, period] = hora24.split(/\s/);
+        let [h, m] = time.split(":");
+        h = parseInt(h);
+        if (/PM/i.test(period) && h < 12) h += 12;
+        if (/AM/i.test(period) && h === 12) h = 0;
+        hora24 = `${h.toString().padStart(2, "0")}:${m}`;
+      }
+      let citaDate;
+      if (data.fecha && hora24) {
+        citaDate = new Date(`${data.fecha}T${hora24}:00`);
+      } else {
+        citaDate = new Date(data.fecha);
+      }
+      // Normalizar fechas a solo año-mes-día para comparar días
+      const citaDay = new Date(citaDate.getFullYear(), citaDate.getMonth(), citaDate.getDate());
+      const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (citaDay < nowDay) {
+        return { error: 'No puedes agendar una cita en un día anterior al actual', success: false };
+      }
       const {
         id_usuario,
         fecha,
+        hora,
         motivo,
         estado = 'pendiente',
         id_staff,
@@ -48,7 +73,6 @@ const Cita = {
       } = data;
 
       // Validar que se asigna staff
-
       if (!id_staff) {
         return { error: 'Debes seleccionar un staff para agendar la cita', success: false };
       }
@@ -59,8 +83,13 @@ const Cita = {
         return { error: 'El staff seleccionado no es válido', success: false };
       }
 
-      // Calcular end_time
-      const startTime = new Date(fecha);
+      // Combinar fecha y hora correctamente
+      let startTime;
+      if (fecha && hora24) {
+        startTime = new Date(`${fecha}T${hora24}:00`);
+      } else {
+        startTime = new Date(fecha);
+      }
       const endTime = new Date(startTime.getTime() + duracion * 60000);
 
       // Validar que no exista una cita confirmada en ese horario
@@ -76,9 +105,9 @@ const Cita = {
       }
 
       const result = await pool.query(
-  `INSERT INTO citas (id_usuario, fecha, end_time, motivo, estado, id_staff, recordatorio_enviado, created_at)
-   VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
-  [id_usuario, startTime, endTime, motivo, estado, id_staff, recordatorio_enviado]
+        `INSERT INTO citas (id_usuario, fecha, end_time, motivo, estado, id_staff, recordatorio_enviado, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
+        [id_usuario, startTime, endTime, motivo, estado, id_staff, recordatorio_enviado]
       );
       return { cita: result.rows[0], success: true, mensaje: 'Cita agendada exitosamente' };
   },
@@ -95,7 +124,18 @@ const Cita = {
       WHERE c.id = $1
     `;
     const result = await pool.query(q, [id]);
-    return result.rows[0];
+    const cita = result.rows[0];
+    if (cita) {
+      // Formatear hora en 12h para frontend
+      const fechaObj = new Date(cita.fecha);
+      let hora = fechaObj.getHours();
+      let minutos = fechaObj.getMinutes();
+      let period = hora >= 12 ? "PM" : "AM";
+      hora = hora % 12;
+      if (hora === 0) hora = 12;
+      cita.hora_12h = `${hora.toString().padStart(2, "0")}:${minutos.toString().padStart(2, "0")} ${period}`;
+    }
+    return cita;
   },
 
   // Listar todas las citas de un usuario
