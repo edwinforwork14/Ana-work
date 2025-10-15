@@ -1,4 +1,4 @@
-const { parse, getDay, set, isWithinInterval } = require('date-fns');
+const { getDay, set, isWithinInterval } = require('date-fns');
 // src/validators/schemas.js
 const Joi = require('joi');
 
@@ -95,7 +95,7 @@ const citaSchema = Joi.object({
   } catch (e) {
     return helpers.error('any.invalid', { message: 'Fecha u hora inválida.' });
   }
-});
+}).unknown(true); // Permitir campos extra como fecha_hora_utc
 
 module.exports = {
   registerSchema,

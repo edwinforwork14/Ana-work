@@ -66,27 +66,31 @@ export default function CreateCita() {
       setErrorMsg("Debes seleccionar fecha y hora");
       return;
     }
-  setIsBlocked(true);
-  setTimeout(() => setIsBlocked(false), 10000); // 10 segundos
+    setIsBlocked(true);
+    setTimeout(() => setIsBlocked(false), 10000); // 10 segundos
 
     const token = localStorage.getItem('token');
-    // Convertir hora a formato 12h (ej: "03:30 PM") si no lo está
-    let hora12 = hora;
-    if (!/AM|PM/i.test(hora12) && hora12) {
-      let [h, m] = hora12.split(":");
-      h = parseInt(h);
-      let period = h >= 12 ? "PM" : "AM";
-      h = h % 12;
-      if (h === 0) h = 12;
-      hora12 = `${h.toString().padStart(2, "0")}:${m} ${period}`;
-    }
+    // Construir fecha local correctamente y convertir a UTC
+    // fecha: YYYY-MM-DD, hora: HH:mm (24h)
+    const [h, m] = hora.split(":");
+    // Crear fecha local en la zona horaria del navegador
+    const localDate = new Date(Number(fecha.slice(0,4)), Number(fecha.slice(5,7))-1, Number(fecha.slice(8,10)), Number(h), Number(m), 0);
+    // Convertir a UTC ISO string
+    const fechaHoraUTC = localDate.toISOString();
+    // LOGS para comparar horas
+    console.log("Hora local seleccionada:", localDate.toString());
+    console.log("Hora UTC enviada al backend:", fechaHoraUTC);
     const body = {
-      fecha: fecha, // solo la fecha (YYYY-MM-DD)
-      hora: hora12,   // hora en formato 12h
+      fecha, // campo requerido por el backend (YYYY-MM-DD)
+      hora,  // campo requerido por el backend (HH:mm)
       motivo,
       id_staff: Number(staffId),
-      duracion: Number(duracion)
+      duracion: Number(duracion),
+      fecha_hora_utc: fechaHoraUTC // requerido por el middleware del backend
     };
+    // Log para depuración
+    console.log('Body enviado al backend:', body);
+    console.log('Hora UTC enviada al backend (solo para validación):', fechaHoraUTC);
     try {
       const response = await fetch('http://localhost:3000/api/citas', {
         method: 'POST',

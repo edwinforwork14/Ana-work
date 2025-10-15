@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react';
 import MyCitas from './pages/clientePanel/myCitas';
 import CreateCita from './pages/clientePanel/createCita';
 import UploadDocument from './pages/clientePanel/uploadDocument';
+import VerMisDocumentos from './pages/clientePanel/verMisDocumentos';
 import StaffCitas from './pages/staffPanel/citas';
 import AdminCitas from './pages/adminPanel/citas';
 import PrivateRoute from './components/PrivateRoute';
@@ -169,6 +170,10 @@ function App() {
           <Route path="/cliente/mis-citas" element={<MyCitas />} />
           <Route path="/cliente/agendar-cita" element={<CreateCita />} />
           <Route path="/cliente/subir-documento" element={<UploadDocument />} />
+          <Route path="/ver-mis-documentos/:id_cita" element={<VerMisDocumentos />} />
+          {/* Route that accepts id_cita as query param: /documentos?id_cita=123 */}
+          <Route path="/documentos" element={<VerMisDocumentos />} />
+          <Route path="/ver-mis-documentos/:id_cita" element={<VerMisDocumentos />} />
           <Route path="/staff/citas" element={
             <PrivateRoute allowedRoles={['staff', 'admin']} user={userInfo}>
               <StaffCitas />

@@ -216,7 +216,7 @@ update: async (id, data) => {
 
   // Si no hay cambios reales
   if (!hayCambios) {
-    console.log("[Cita.update] Sin cambios detectados");
+    require('../utils/logger').debug("[Cita.update] Sin cambios detectados");
     return { actualizado: false, mensaje: "Sin cambios: los valores son iguales o no hay campos válidos." };
   }
 
@@ -232,16 +232,19 @@ update: async (id, data) => {
   `;
 
   // DEBUG: Log query and values
-  console.log("[Cita.update] query:", q);
-  console.log("[Cita.update] values:", values);
+  require('../utils/logger').debug("[Cita.update] query:", q);
+  require('../utils/logger').debug("[Cita.update] values:", values);
 
   const result = await pool.query(q, values);
-  console.log("[Cita.update] result:", result.rows[0]);
+  require('../utils/logger').debug("[Cita.update] result:", result.rows[0]);
   return { actualizado: true, cita: result.rows[0] };
 },
 
   // Eliminar cita
   delete: async (id) => {
+    // Eliminar notificaciones asociadas antes de borrar la cita
+    const Notificacion = require('./Notificacion');
+    await Notificacion.eliminarPorCita(id);
     await pool.query('DELETE FROM citas WHERE id = $1', [id]);
   },
 
@@ -251,11 +254,11 @@ update: async (id, data) => {
       const citaRes = await pool.query('SELECT * FROM citas WHERE id = $1', [id]);
       const cita = citaRes.rows[0];
       if (!cita) {
-        console.log(`[confirmarCita] Cita no encontrada para id=${id}`);
+    require('../utils/logger').debug(`[confirmarCita] Cita no encontrada para id=${id}`);
         return { error: 'Cita no encontrada', success: false };
       }
       const { id_staff, fecha, end_time, estado } = cita;
-      console.log(`[confirmarCita] Intentando confirmar cita id=${id}, estado=${estado}, staff=${id_staff}, fecha=${fecha}, end_time=${end_time}`);
+  require('../utils/logger').debug(`[confirmarCita] Intentando confirmar cita id=${id}, estado=${estado}, staff=${id_staff}, fecha=${fecha}, end_time=${end_time}`);
 
       // Validar solapamiento solo con citas confirmadas (cualquier cruce)
       const overlapRes = await pool.query(
@@ -267,7 +270,7 @@ update: async (id, data) => {
         [id_staff, fecha, end_time, id]
       );
       if (overlapRes.rows.length > 0) {
-        console.log(`[confirmarCita] Solapamiento detectado con citas:`, overlapRes.rows);
+  require('../utils/logger').debug(`[confirmarCita] Solapamiento detectado con citas:`, overlapRes.rows);
         return { error: 'Ya existe una cita confirmada en ese horario', success: false };
       }
 
@@ -276,7 +279,7 @@ update: async (id, data) => {
         `UPDATE citas SET estado = 'confirmada', updated_at = NOW() WHERE id = $1 RETURNING *`,
         [id]
       );
-      console.log(`[confirmarCita] Cita confirmada id=${id}`);
+  require('../utils/logger').debug(`[confirmarCita] Cita confirmada id=${id}`);
       return { cita: result.rows[0], success: true, mensaje: 'Cita confirmada' };
     },
 };

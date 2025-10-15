@@ -23,7 +23,21 @@ export default function UploadDocument() {
 	}, [errorMsg]);
 
 	const handleFileChange = (e) => {
-		setFile(e.target.files[0]);
+			const selected = e.target.files[0];
+			if (!selected) return;
+			// Validar tipo de archivo (PDF, imagen, Word)
+			const allowedTypes = [
+				'application/pdf',
+				'image/jpeg', 'image/png', 'image/gif', 'image/bmp', 'image/webp',
+				'application/msword',
+				'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+			];
+			if (!allowedTypes.includes(selected.type)) {
+				setErrorMsg('Solo se permiten archivos PDF, imágenes o Word.');
+				setFile(null);
+				return;
+			}
+			setFile(selected);
 	};
 
 	const handleSubmit = async (e) => {
@@ -36,30 +50,30 @@ export default function UploadDocument() {
 			setLoading(false);
 			return;
 		}
-		const formData = new FormData();
-		formData.append("archivo", file);
-		formData.append("id_cita", idCita);
-		try {
-			const token = localStorage.getItem("token");
-			const res = await fetch("http://localhost:3000/api/documentos/upload", {
-				method: "POST",
-				headers: {
-					"Authorization": `Bearer ${token}`
-				},
-				body: formData
-			});
-			const data = await res.json();
-			if (res.ok && data.success) {
-				setSuccessMsg("Documento subido correctamente");
-				setFile(null);
-				setIdCita("");
-			} else {
-				setErrorMsg(data.error || "Error al subir documento");
+			const formData = new FormData();
+			formData.append("archivo", file);
+			formData.append("id_cita", idCita);
+			try {
+				const token = localStorage.getItem("token");
+				const res = await fetch("http://localhost:3000/api/documentos/upload", {
+					method: "POST",
+					headers: {
+						"Authorization": `Bearer ${token}`
+					},
+					body: formData
+				});
+				const data = await res.json();
+				if (res.ok && data.success) {
+					setSuccessMsg("Documento subido correctamente");
+					setFile(null);
+					setIdCita("");
+				} else {
+					setErrorMsg(data.error || "Error al subir documento");
+				}
+			} catch (err) {
+				setErrorMsg("Error de red");
 			}
-		} catch (err) {
-			setErrorMsg("Error de red");
-		}
-		setLoading(false);
+			setLoading(false);
 	};
 
 	return (

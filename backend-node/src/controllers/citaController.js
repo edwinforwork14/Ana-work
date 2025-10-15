@@ -1,7 +1,52 @@
+// Obtener una cita y sus documentos asociados
+const pool = require('../config/db');
 // src/controllers/citaController.js
 const Cita = require('../models/Cita');
 const { citaSchema } = require("./schemas");
 const Notificacion = require("../models/Notificacion");
+
+// Helper para resolver nombres legibles para notificaciones.
+// Prioriza: req.user.nombre -> lookup por req.user.id -> lookup por fallbackUserId -> roleFallback
+async function getDisplayName(req, fallbackUserId, roleFallback = 'Usuario') {
+  try {
+    if (req && req.user && req.user.nombre) return req.user.nombre;
+    const userId = req && req.user && req.user.id ? req.user.id : null;
+    if (userId) {
+      const r = await pool.query('SELECT nombre FROM usuarios WHERE id = $1', [userId]);
+      if (r.rows[0] && r.rows[0].nombre) return r.rows[0].nombre;
+    }
+    if (fallbackUserId) {
+      const r2 = await pool.query('SELECT nombre FROM usuarios WHERE id = $1', [fallbackUserId]);
+      if (r2.rows[0] && r2.rows[0].nombre) return r2.rows[0].nombre;
+    }
+  } catch (e) {
+    // si falla la consulta, seguimos al fallback
+  }
+  // último recurso: email del req.user o label por rol
+  if (req && req.user && req.user.email) return req.user.email;
+  return roleFallback;
+}
+
+
+const obtenerCitaConDocumentos = async (req, res) => {
+  try {
+    const id = req.params.id;
+    // Traer la cita
+    const citaResult = await pool.query('SELECT * FROM citas WHERE id = $1', [id]);
+    if (citaResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Cita no encontrada' });
+    }
+    const cita = citaResult.rows[0];
+    // Traer los documentos asociados
+    const docResult = await pool.query('SELECT * FROM documentos WHERE id_cita = $1', [id]);
+    cita.documentos = docResult.rows;
+    res.json({ cita });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al obtener cita y documentos', details: err.message });
+  }
+};
+
+
 
 // Obtener todas las citas de un usuario específico (solo staff y admin)
 exports.getCitasByUsuario = async (req, res) => {
@@ -66,7 +111,7 @@ exports.updateCita = async (req, res) => {
     // La lógica de permisos y validación de estado se maneja en permissionMiddleware.js
     if (req.originalUrl.endsWith('/cancelar')) {
       data = { estado: 'cancelada' };
-      const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (cita.nombre_usuario || 'Usuario');
+  const nombreCreador = await getDisplayName(req, cita.id_usuario, 'Usuario');
       // Notificación para el staff (si la acción la realiza el cliente)
       if (req.user.rol === 'cliente') {
         await Notificacion.crear({
@@ -74,18 +119,19 @@ exports.updateCita = async (req, res) => {
           id_staff: cita.id_staff,
           id_cita: cita.id,
           tipo: "cita_cancelada",
-          mensaje: `La cita (ID: ${cita.id}) fue cancelada por ${nombreCreador}.`,
+          mensaje: `La cita (ID: ${cita.id}) fue cancelada por ${nombreCreador}. Duración: ${cita.duracion || 60} minutos.`,
           from: 'cliente'
         });
       }
       // Notificación para el cliente (si la acción la realiza el staff)
       if (req.user.rol === 'staff') {
+        const nombreStaff = await getDisplayName(req, cita.id_staff, 'Staff');
         await Notificacion.crear({
           id_usuario: cita.id_usuario,
           id_staff: cita.id_staff,
           id_cita: cita.id,
           tipo: "cita_cancelada_cliente",
-          mensaje: `Tu cita (ID: ${cita.id}) fue cancelada por el staff ${req.user.nombre || 'Staff'}.`,
+          mensaje: `Tu cita (ID: ${cita.id}) fue cancelada por el staff ${nombreStaff}. Duración: ${cita.duracion || 60} minutos.`,
           from: 'staff'
         });
       }
@@ -93,12 +139,13 @@ exports.updateCita = async (req, res) => {
       data = { estado: 'completada' };
       // Notificación para el cliente si la acción la realiza el staff
       if (req.user.rol === 'staff') {
+        const nombreStaff = await getDisplayName(req, cita.id_staff, 'Staff');
         await Notificacion.crear({
           id_usuario: cita.id_usuario,
           id_staff: cita.id_staff,
           id_cita: cita.id,
           tipo: "cita_completada_cliente",
-          mensaje: `Tu cita (ID: ${cita.id}) fue completada por el staff ${req.user.nombre || 'Staff'}.`,
+          mensaje: `Tu cita (ID: ${cita.id}) fue completada por el staff ${nombreStaff}. Duración: ${cita.duracion || 60} minutos.`,
           from: 'staff'
         });
       }
@@ -106,12 +153,13 @@ exports.updateCita = async (req, res) => {
       data = { estado: 'pendiente' };
       // Notificación para el cliente si la acción la realiza el staff
       if (req.user.rol === 'staff') {
+        const nombreStaff = await getDisplayName(req, cita.id_staff, 'Staff');
         await Notificacion.crear({
           id_usuario: cita.id_usuario,
           id_staff: cita.id_staff,
           id_cita: cita.id,
           tipo: "cita_pendiente_cliente",
-          mensaje: `Tu cita (ID: ${cita.id}) fue marcada como pendiente por el staff ${req.user.nombre || 'Staff'}.`,
+          mensaje: `Tu cita (ID: ${cita.id}) fue marcada como pendiente por el staff ${nombreStaff}. Duración: ${cita.duracion || 60} minutos.`,
           from: 'staff'
         });
       }
@@ -134,22 +182,23 @@ exports.updateCita = async (req, res) => {
     const cambioFecha = req.body.fecha && req.body.fecha !== cita.fecha;
     const cambioHora = req.body.hora && req.body.hora !== cita.hora;
     if (cambioMotivo || cambioFecha || cambioHora) {
-      // Obtener nombre del usuario creador de la cita
-      const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (cita.nombre_usuario || 'Usuario');
+  // Obtener nombre legible del creador de la cita
+  const nombreCreador = await getDisplayName(req, cita.id_usuario, 'Usuario');
       let mensaje = `La cita (ID: ${cita.id}) de ${nombreCreador} fue `;
-      if (cambioMotivo) mensaje += `modificada en el motivo. `;
-      if (cambioFecha) mensaje += `Nueva fecha: ${req.body.fecha}. `;
-      if (cambioHora) mensaje += `Nueva hora: ${req.body.hora}.`;
+  if (cambioMotivo) mensaje += `modificada en el motivo. `;
+  if (cambioFecha) mensaje += `Nueva fecha: ${req.body.fecha}. `;
+  if (cambioHora) mensaje += `Nueva hora: ${req.body.hora}. `;
+  mensaje += `Duración: ${(req.body.duracion || cita.duracion || 60)} minutos.`;
       const notifData = {
         id_usuario: cita.id_usuario, // El cliente es el usuario de la cita
         id_staff: cita.id_staff,
         id_cita: cita.id,
         tipo: "cita_reagendada",
-        mensaje: mensaje.trim(),
+  mensaje: mensaje.trim(),
         from: req.user.rol === 'staff' ? 'staff' : 'cliente'
       };
-      console.log('Notificacion.crear', notifData);
-      await Notificacion.crear(notifData);
+  require('../utils/logger').debug('Notificacion.crear', notifData);
+  await Notificacion.crear(notifData);
     }
 
     const updated = await Cita.update(req.params.id, data);
@@ -181,31 +230,21 @@ exports.deleteCita = async (req, res) => {
 
 
 exports.createCita = async (req, res) => {
-  // Validar datos de entrada
-  console.log('Datos recibidos para crear cita:', req.body);
-  const { error } = citaSchema.validate(req.body);
-  if (error) {
-    const customMsg = error.details[0].context && error.details[0].context.message;
-    return res.status(400).json({ error: customMsg || error.details[0].message, success: false });
-  }
   try {
+    // El id_usuario siempre es el del usuario autenticado
     let data = { ...req.body, id_usuario: req.user.id };
-    if (req.user.rol === 'cliente') {
-      if ('estado' in data) {
-        delete data.estado;
-      }
-    }
     const result = await Cita.create(data);
     if (result && result.success) {
       // Crear notificación para el staff asignado (enlazando usuario, staff y cita)
-      const nombreCreador = req.user && req.user.nombre ? req.user.nombre : (result.cita.nombre_usuario || req.user.email || 'Usuario');
+      const nombreCreador = await getDisplayName(req, result.cita.id_usuario || result.cita.id || req.user.id, 'Usuario');
+
       await Notificacion.crear({
-  id_usuario: req.user.id, // el cliente
-  id_staff: req.body.id_staff,
-  id_cita: result.cita.id,
-  tipo: "cita_nueva",
-  mensaje: `Nueva cita agendada por ${nombreCreador} para ${req.body.fecha}`,
-  from: req.user.rol === 'staff' ? 'staff' : 'cliente'
+        id_usuario: req.user.id, // el cliente
+        id_staff: req.body.id_staff,
+        id_cita: result.cita.id,
+        tipo: "cita_nueva",
+  mensaje: `Nueva cita agendada por ${nombreCreador} para ${req.body.fecha || req.body.fecha_hora_utc}. Duración: ${(req.body.duracion || 60)} minutos.`,
+        from: req.user.rol === 'staff' ? 'staff' : 'cliente'
       });
       res.status(201).json({ cita: result.cita, mensaje: result.mensaje || "Cita agendada exitosamente", success: true });
     } else if (result && result.error) {
@@ -216,7 +255,6 @@ exports.createCita = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message || "Error interno al agendar la cita", success: false });
   }
-  
 };
 
 
@@ -233,7 +271,7 @@ exports.confirmarCita = async (req, res) => {
         id_staff: cita.id_staff,
         id_cita: cita.id,
         tipo: "cita_confirmada_cliente",
-        mensaje: `Tu cita para el ${cita.fecha} ha sido confirmada por el staff ${req.user.nombre || 'Staff'}.`,
+  mensaje: `Tu cita para el ${cita.fecha} ha sido confirmada por el staff ${req.user.nombre || 'Staff'}. Duración: ${cita.duracion || 60} minutos.`,
         from: 'staff'
       });
       res.json({ cita: result.cita, mensaje: result.mensaje, success: true });
@@ -243,4 +281,16 @@ exports.confirmarCita = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message, success: false });
   }
+};
+
+module.exports = {
+  obtenerCitaConDocumentos,
+  getCitasByUsuario: exports.getCitasByUsuario,
+  getAllCitas: exports.getAllCitas,
+  getCitaById: exports.getCitaById,
+  updateCita: exports.updateCita,
+  deleteCita: exports.deleteCita,
+  createCita: exports.createCita,
+  confirmarCita: exports.confirmarCita,
+  // Agrega aquí otros métodos si los tienes
 };

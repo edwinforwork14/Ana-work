@@ -1,8 +1,11 @@
+const pool = require("../config/db");
 // Notificacion.js
 // Modelo de notificación
-const pool = require("../config/db");
-
 const Notificacion = {
+  // Eliminar todas las notificaciones asociadas a una cita
+  eliminarPorCita: async (id_cita) => {
+    await pool.query('DELETE FROM notificaciones WHERE id_cita = $1', [id_cita]);
+  },
   listarPorStaff: async (id_staff) => {
   const q = `SELECT * FROM notificaciones WHERE id_staff = $1 AND "from" = 'cliente' ORDER BY creada_en DESC`;
   const result = await pool.query(q, [id_staff]);

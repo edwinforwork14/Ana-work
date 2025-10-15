@@ -62,7 +62,8 @@ const authController = {
 
       res.status(201).json({ mensaje: "Usuario registrado", usuario: nuevo, token });
     } catch (e) {
-      console.error(e);
+  const logger = require('../utils/logger');
+  logger.error(e);
       res.status(500).json({ error: "Error en el registro" });
     }
   },
@@ -71,7 +72,8 @@ const authController = {
     // Validar datos de entrada
     const { error } = loginSchema.validate(req.body);
     if (error) {
-      console.error("[login] Error de validación:", error.details[0].message);
+  const logger = require('../utils/logger');
+  logger.error("[login] Error de validación:", error.details[0].message);
       return res.status(400).json({ error: error.details[0].message });
     }
     try {
@@ -79,13 +81,15 @@ const authController = {
 
       const user = await Usuario.findByEmail(email);
       if (!user) {
-        console.error(`[login] Usuario no encontrado para email: ${email}`);
+  const logger = require('../utils/logger');
+  logger.error(`[login] Usuario no encontrado para email: ${email}`);
         return res.status(400).json({ error: "Credenciales inválidas" });
       }
 
       const ok = await bcrypt.compare(password, user.password);
       if (!ok) {
-        console.error(`[login] Contraseña incorrecta para email: ${email}`);
+  const logger = require('../utils/logger');
+  logger.error(`[login] Contraseña incorrecta para email: ${email}`);
         return res.status(400).json({ error: "Credenciales inválidas" });
       }
 
@@ -95,7 +99,8 @@ const authController = {
       const publico = await Usuario.findPublicById(user.id);
       res.json({ mensaje: "Login exitoso", usuario: publico, token });
     } catch (e) {
-      console.error("[login] Error inesperado:", e);
+  const logger = require('../utils/logger');
+  logger.error("[login] Error inesperado:", e);
       res.status(500).json({ error: "Error en el login" });
     }
   },
@@ -124,7 +129,8 @@ const authController = {
         const disponibilidad = await getStaffDisponibilidad(staffId, desdeDate, hastaDate);
         res.json({ disponibilidad });
       } catch (e) {
-        console.error(e);
+  const logger = require('../utils/logger');
+  logger.error(e);
         res.status(500).json({ error: "Error consultando disponibilidad" });
       }
     }
@@ -147,7 +153,8 @@ const authController = {
         await Usuario.updatePassword(user.id, hashed);
         res.json({ mensaje: "Contraseña actualizada correctamente" });
       } catch (e) {
-        console.error(e);
+  const logger = require('../utils/logger');
+  logger.error(e);
         res.status(500).json({ error: "Error al cambiar la contraseña" });
       }
     }

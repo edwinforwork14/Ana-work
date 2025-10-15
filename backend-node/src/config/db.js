@@ -12,7 +12,13 @@ const pool = new Pool({
 
 // Opcional: mensaje de conexión exitosa solo para desarrollo
 pool.query('SELECT NOW()')
-  .then(() => console.log("✅ Conectado a PostgreSQL"))
-  .catch(err => console.error("❌ Error al conectar a PostgreSQL", err));
+  .then(() => {
+    const logger = require('../utils/logger');
+    logger.info('✅ Conectado a PostgreSQL');
+  })
+  .catch(err => {
+    const logger = require('../utils/logger');
+    logger.error('❌ Error al conectar a PostgreSQL', err);
+  });
 
 module.exports = pool;
