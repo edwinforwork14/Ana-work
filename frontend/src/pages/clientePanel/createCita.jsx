@@ -1,64 +1,52 @@
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Button from "@/components/ui/button";
+import { ArrowRightIcon } from "@heroicons/react/24/outline";
+import StaffAvailabilityTable from '@/components/StaffAvailabilityTable';
 
-import { useState, useEffect } from "react";
-import { parseISO, format } from "date-fns";
-
-export default function CreateCita() {
+export default function AgendarCita() {
+  const navigate = useNavigate();
   const [fecha, setFecha] = useState("");
   const [hora, setHora] = useState("");
   const [motivo, setMotivo] = useState("");
-  const [staffs, setStaffs] = useState([]);
-  const [staffId, setStaffId] = useState("");
-  const [duracion, setDuracion] = useState(60);
-  const [successMsg, setSuccessMsg] = useState("");
-  const [waitMsg, setWaitMsg] = useState("");
+  const [mensaje, setMensaje] = useState("");
+  const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [disponibilidad, setDisponibilidad] = useState([]);
+  const [staffs, setStaffs] = useState([]);
+  const [idStaff, setIdStaff] = useState("");
+  const [duracion, setDuracion] = useState(60);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [desde, setDesde] = useState("");
+  const [hasta, setHasta] = useState("");
 
-  // Consultar disponibilidad del staff seleccionado
+  // Si se selecciona un staff y no hay fecha, usar la fecha de hoy por defecto
   useEffect(() => {
-    if (staffId) {
-      // Consultar solo los horarios ocupados usando la nueva ruta
-      const url = `http://localhost:3000/api/staff/ocupados?id_staff=${staffId}`;
-      const token = localStorage.getItem('token');
-      fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-        .then(res => res.json())
-        .then(data => {
-          setDisponibilidad(data.ocupados || []);
-        })
-        .catch(() => setDisponibilidad([]));
-    } else {
-      setDisponibilidad([]);
+    if (idStaff && !fecha) {
+      const d = new Date();
+      setFecha(d.toISOString().slice(0, 10));
     }
-  }, [staffId]);
+  }, [idStaff]);
 
-  // Mostrar en consola la ruta de disponibilidad cada vez que cambia el staff seleccionado
-  useEffect(() => {
-    if (staffId) {
-      console.log(`http://localhost:3000/api/staff/disponibilidad?id_staff=${staffId}`);
-    }
-  }, [staffId]);
-
-  // Obtener lista de staffs
   useEffect(() => {
     const fetchStaffs = async () => {
-      const res = await fetch("http://localhost:3000/api/auth/staffs"); // Debes crear este endpoint que devuelva los usuarios con rol 'staff'
-      const data = await res.json();
-      setStaffs(data.staffs || []);
+      try {
+        const res = await fetch("http://localhost:3000/api/auth/staffs");
+        if (!res.ok) return;
+        const data = await res.json();
+        setStaffs(data.staffs || []);
+      } catch (e) {
+        // ignore
+      }
     };
     fetchStaffs();
   }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSuccessMsg("");
-    setWaitMsg("");
     setErrorMsg("");
-    if (!staffId) {
+    setSuccess(false);
+
+    if (!idStaff) {
       setErrorMsg("Debes seleccionar un staff");
       return;
     }
@@ -66,195 +54,169 @@ export default function CreateCita() {
       setErrorMsg("Debes seleccionar fecha y hora");
       return;
     }
-    setIsBlocked(true);
-    setTimeout(() => setIsBlocked(false), 10000); // 10 segundos
 
-    const token = localStorage.getItem('token');
-    // Construir fecha local correctamente y convertir a UTC
-    // fecha: YYYY-MM-DD, hora: HH:mm (24h)
-    const [h, m] = hora.split(":");
-    // Crear fecha local en la zona horaria del navegador
-    const localDate = new Date(Number(fecha.slice(0,4)), Number(fecha.slice(5,7))-1, Number(fecha.slice(8,10)), Number(h), Number(m), 0);
-    // Convertir a UTC ISO string
-    const fechaHoraUTC = localDate.toISOString();
-    // LOGS para comparar horas
-    console.log("Hora local seleccionada:", localDate.toString());
-    console.log("Hora UTC enviada al backend:", fechaHoraUTC);
-    const body = {
-      fecha, // campo requerido por el backend (YYYY-MM-DD)
-      hora,  // campo requerido por el backend (HH:mm)
-      motivo,
-      id_staff: Number(staffId),
-      duracion: Number(duracion),
-      fecha_hora_utc: fechaHoraUTC // requerido por el middleware del backend
-    };
-    // Log para depuración
-    console.log('Body enviado al backend:', body);
-    console.log('Hora UTC enviada al backend (solo para validación):', fechaHoraUTC);
     try {
-      const response = await fetch('http://localhost:3000/api/citas', {
-        method: 'POST',
+      const token = localStorage.getItem("token");
+      const [h, m] = hora.split(":");
+      const localDate = new Date(Number(fecha.slice(0,4)), Number(fecha.slice(5,7)) - 1, Number(fecha.slice(8,10)), Number(h), Number(m), 0);
+      const fechaHoraUTC = localDate.toISOString();
+
+      const body = {
+        fecha,
+        hora,
+        motivo,
+        id_staff: Number(idStaff),
+        duracion: Number(duracion),
+        fecha_hora_utc: fechaHoraUTC
+      };
+
+      const res = await fetch("http://localhost:3000/api/citas", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
       });
-    } catch (error) {
-      setErrorMsg("Error de red");
+
+      const data = await res.json();
+
+      if (res.ok) {
+        setSuccess(true);
+        setMensaje(data.mensaje || "¡Cita agendada exitosamente!");
+        setFecha("");
+        setHora("");
+        setMotivo("");
+        setIdStaff("");
+        setDuracion(60);
+        setTimeout(() => navigate('/cliente/mis-citas'), 900);
+      } else {
+        setErrorMsg(data.error || data.message || "Error al agendar la cita.");
+      }
+    } catch (err) {
+      setErrorMsg("Error de conexión con el servidor.");
     }
   };
 
-  // Ocultar los mensajes después de 3 segundos
-  useEffect(() => {
-    if (successMsg) {
-      const timer = setTimeout(() => setSuccessMsg("") , 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMsg]);
-  useEffect(() => {
-    if (waitMsg) {
-      const timer = setTimeout(() => setWaitMsg("") , 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [waitMsg]);
-  useEffect(() => {
-    if (errorMsg) {
-      const timer = setTimeout(() => setErrorMsg("") , 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMsg]);
-
   return (
-    <div className="flex flex-row gap-8 justify-center">
-      {/* Formulario */}
-      <div className="p-8 max-w-3xl w-[40vw] min-w-[340px] bg-white rounded-xl shadow relative">
-        <h2 className="text-xl font-bold text-green-600 mb-4">Agendar Cita</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* ...existing code... */}
-          <div>
-            <label className="block text-gray-700 font-semibold mb-1">Staff</label>
-            <select
-              value={staffId}
-              onChange={e => setStaffId(e.target.value)}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-green-400"
-              required
-            >
-              <option value="">Selecciona un staff</option>
-              {staffs.map(staff => (
-                <option key={staff.id} value={staff.id}>
-                  {staff.nombre} (ID: {staff.id})
-                </option>
-              ))}
-            </select>
+    <section className="relative text-gray-300">
+      <div className="container mx-auto px-5 py-24 backdrop-blur-sm">
+        <div className="mb-12 flex w-full flex-col text-center">
+          <h1 className="title-font mb-4 text-2xl font-semibold text-white sm:text-3xl">
+            Agendar Cita
+          </h1>
+          <p className="mx-auto text-base leading-relaxed lg:w-2/3 text-gray-300">
+            Selecciona la fecha, hora, motivo y el staff para tu cita. Nuestro equipo se pondrá en contacto contigo para confirmar la disponibilidad.
+          </p>
+        </div>
+
+        <div className="mx-auto md:w-11/12 lg:w-4/5">
+          <div className="flex flex-col lg:flex-row gap-6">
+
+            {/* FORMULARIO */}
+            <div className="w-full lg:w-2/3">
+              <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Staff</label>
+                    <select
+                      value={idStaff}
+                      onChange={(e) => setIdStaff(e.target.value)}
+                      className="w-full rounded border border-gray-600 bg-gray-800/50 py-2 px-3 text-base text-gray-100 outline-none"
+                      required
+                    >
+                      <option value="">Selecciona un staff</option>
+                      {staffs.map(s => (
+                        <option key={s.id} value={s.id}>{s.nombre} (ID: {s.id})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <label className="sr-only">Fecha</label>
+                      <input
+                        type="date"
+                        value={fecha}
+                        onChange={(e) => setFecha(e.target.value)}
+                        className="w-full rounded border border-gray-600 bg-gray-800/50 py-2 px-3 text-base text-gray-100 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-700 transition"
+                        required
+                      />
+                    </div>
+                    <div className="w-36">
+                      <label className="sr-only">Hora</label>
+                      <input
+                        type="time"
+                        value={hora}
+                        onChange={(e) => setHora(e.target.value)}
+                        className="w-full rounded border border-gray-600 bg-gray-800/50 py-2 px-3 text-base text-gray-100 outline-none focus:border-green-400 focus:ring-2 focus:ring-green-700 transition"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Desde/Hasta controls moved inside the form */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="text-sm text-gray-300 mr-2">Desde:</label>
+                    <input type="date" value={desde} onChange={e => setDesde(e.target.value)} className="rounded border border-gray-600 bg-gray-800/50 py-1 px-2 text-sm text-gray-100" />
+                    <label className="text-sm text-gray-300 ml-2">Hasta:</label>
+                    <input type="date" value={hasta} onChange={e => setHasta(e.target.value)} className="rounded border border-gray-600 bg-gray-800/50 py-1 px-2 text-sm text-gray-100" />
+                    <button type="button" onClick={() => { if (fecha) { setDesde(fecha); const d = new Date(fecha); d.setDate(d.getDate() + 1); setHasta(d.toISOString().slice(0,10)); } }} className="px-2 py-1 rounded bg-blue-600 text-white">Usar fecha</button>
+                    <button type="button" onClick={() => setRefreshKey(k => k + 1)} className="px-2 py-1 rounded bg-green-600 text-white ml-auto">Actualizar disponibilidad</button>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Duración (min)</label>
+                    <input type="number" min="15" max="480" value={duracion} onChange={e => setDuracion(e.target.value)} className="w-36 rounded border border-gray-600 bg-gray-800/50 py-2 px-3 text-base text-gray-100 outline-none" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Motivo</label>
+                    <textarea
+                      value={motivo}
+                      onChange={(e) => setMotivo(e.target.value)}
+                      required
+                      className="h-32 w-full resize-none rounded border border-gray-600 bg-gray-800/50 py-2 px-3 text-base text-gray-100 placeholder-transparent outline-none focus:border-green-400 focus:ring-2 focus:ring-green-700 transition"
+                    />
+                  </div>
+
+                  <div className="text-center">
+                    <Button
+                      type="submit"
+                      className="mx-auto flex items-center gap-2 rounded bg-green-600 py-2 px-8 text-lg text-white hover:bg-green-700 focus:outline-none transition"
+                    >
+                      Agendar Cita
+                      <ArrowRightIcon className="h-5 w-5" />
+                    </Button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Mensajes */}
+              <div className="mt-6 text-center">
+                {success && <p className="text-green-400 font-semibold">{mensaje}</p>}
+                {errorMsg && <p className="text-red-400 font-semibold">{errorMsg}</p>}
+              </div>
+            </div>
+
+            {/* DISPONIBILIDAD DEL STAFF */}
+            <div className="w-full lg:w-1/3">
+              <div className="rounded-2xl bg-gray-800/60 border border-gray-700 shadow-xl p-6 backdrop-blur-md">
+                <h2 className="text-xl font-semibold text-white mb-4">Disponibilidad del Staff</h2>
+
+                {idStaff ? (
+                  <div className="max-h-96 overflow-y-auto rounded-lg border border-gray-700 bg-gray-900/40 p-2 custom-scroll">
+                    <StaffAvailabilityTable idStaff={idStaff} fecha={fecha} desde={desde} hasta={hasta} useAuthRoute={true} refreshKey={refreshKey} />
+                  </div>
+                ) : (
+                  <p className="text-gray-400 text-sm">Selecciona un staff para ver su disponibilidad.</p>
+                )}
+              </div>
+            </div>
+
           </div>
-          <div>
-            <label className="block text-gray-700 font-semibold mb-1">Fecha</label>
-            <input
-              type="date"
-              value={fecha}
-              onChange={(e) => setFecha(e.target.value)}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-green-400"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700 font-semibold mb-1">Hora</label>
-            <input
-              type="time"
-              placeholder="Ej: 03:30 PM"
-              value={hora}
-              onChange={(e) => setHora(e.target.value)}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-green-400"
-              required
-            />
-            <span className="text-xs text-gray-500">Formato: hh:mm AM/PM</span>
-          </div>
-          <div>
-            <label className="block text-gray-700 font-semibold mb-1">Motivo</label>
-            <textarea
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-              placeholder="Motivo de la cita"
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-green-400 min-h-[80px] resize-vertical"
-              rows={4}
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-gray-700 font-semibold mb-1">Duración (minutos)</label>
-            <input
-              type="number"
-              min="15"
-              max="180"
-              value={duracion}
-              onChange={e => setDuracion(e.target.value)}
-              className="w-full px-3 py-2 border rounded focus:outline-none focus:ring focus:border-green-400"
-              required
-            />
-          </div>
-          {waitMsg && (
-            <div className="mb-2 text-yellow-600 font-semibold text-center">{waitMsg}</div>
-          )}
-          <button
-            type="submit"
-            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition w-full font-bold"
-            disabled={isBlocked}
-          >
-            Enviar
-          </button>
-        </form>
-        {/* Mostrar disponibilidad del staff seleccionado en texto */}
-        {staffId && (
-          <div className="mb-4 p-4 bg-gray-100 border border-gray-300 rounded text-sm">
-            <span className="font-semibold text-gray-700">Horarios ocupados del staff seleccionado:</span>
-            <ul className="list-disc ml-4 mt-1">
-              {disponibilidad.length === 0 && <li className="text-green-600">No hay horarios ocupados</li>}
-              {disponibilidad.map((oc, idx) => {
-                const inicio = format(parseISO(oc.fecha), "yyyy-MM-dd HH:mm");
-                let fin = oc.end_time ? format(parseISO(oc.end_time), "yyyy-MM-dd HH:mm") : "";
-                return (
-                  <li key={idx}>{inicio}{fin ? ` - ${fin}` : ""}</li>
-                );
-              })}
-            </ul>
-          </div>
-        )}
-      </div>
-      {/* Bloque de horarios permitidos */}
-      <div className="p-8 w-[320px] min-w-[220px] bg-blue-50 border border-blue-200 rounded-xl shadow h-fit self-start">
-        <h3 className="text-lg font-bold text-blue-700 mb-2">Horarios permitidos</h3>
-        <ul className="list-disc ml-4 text-blue-900 text-sm">
-          <li>Lunes a viernes: <b>7:00</b> a <b>18:00</b></li>
-          <li>Sábados: <b>7:00</b> a <b>14:00</b></li>
-          <li className="text-red-600">Domingos: <b>No disponible</b></li>
-        </ul>
-        <div className="mt-4 text-xs text-blue-700">
-          <b>Nota:</b> Si seleccionas un horario fuera de estos rangos, el sistema mostrará un error y no permitirá agendar la cita.
         </div>
       </div>
-      {/* Mensajes flotantes */}
-      {successMsg && (
-        <div className="fixed z-50" style={{ right: '2rem', bottom: '2rem' }}>
-          <div className="bg-green-600 text-white px-4 py-2 rounded shadow-lg text-sm animate-pulse">
-            {successMsg}
-          </div>
-        </div>
-      )}
-      {waitMsg && (
-        <div className="fixed z-50" style={{ right: '2rem', bottom: '2rem' }}>
-          <div className="bg-yellow-500 text-white px-4 py-2 rounded shadow-lg text-sm animate-pulse">
-            {waitMsg}
-          </div>
-        </div>
-      )}
-      {errorMsg && (
-        <div className="fixed z-50" style={{ right: '2rem', bottom: '2rem' }}>
-          <div className="bg-red-600 text-white px-4 py-2 rounded shadow-lg text-sm animate-pulse">
-            {errorMsg}
-          </div>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }

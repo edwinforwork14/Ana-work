@@ -1,15 +1,30 @@
 import { useLocation, Navigate } from 'react-router-dom';
 
+function parseJwt(token) {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    return null;
+  }
+}
+
 export default function PrivateRoute({ children, allowedRoles, user }) {
   const location = useLocation();
 
-  if (!user || !user.rol) {
-    // No autenticado
+  // If user not provided via props, try to read from localStorage token
+  let currentUser = user;
+  if (!currentUser) {
+    const token = localStorage.getItem('token');
+    if (token) currentUser = parseJwt(token);
+  }
+
+  if (!currentUser || !currentUser.rol) {
+    // Not authenticated
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!allowedRoles.includes(user.rol)) {
-    // No autorizado
+  if (allowedRoles && Array.isArray(allowedRoles) && !allowedRoles.includes(currentUser.rol)) {
+    // Not authorized
     return (
       <div className="flex flex-col items-center justify-center min-h-[40vh]">
         <div className="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded shadow text-center">

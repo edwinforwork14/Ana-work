@@ -1,24 +1,38 @@
-// Configuración de la conexión a PostgreSQL
-require("dotenv").config();
-const { Pool } = require('pg');
+// config/db.js
+require("dotenv").config({ path: __dirname + "/../../.env" });
+const { Pool } = require("pg");
+const logger = require("../utils/logger");
 
+// 🧠 Verificación de variables
+if (!process.env.DB_USER || !process.env.DB_PASSWORD || !process.env.DB_NAME) {
+  console.error("❌ Error: Faltan variables de entorno para la base de datos.");
+  console.log({
+    DB_USER: process.env.DB_USER,
+    DB_PASSWORD: process.env.DB_PASSWORD ? "(oculta)" : undefined,
+    DB_NAME: process.env.DB_NAME,
+    DB_HOST: process.env.DB_HOST,
+    DB_PORT: process.env.DB_PORT,
+  });
+  process.exit(1);
+}
+
+// 🧩 Crear conexión forzando password como string
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
+  password: String(process.env.DB_PASSWORD), // 👈 fuerza a string
   port: process.env.DB_PORT,
 });
 
-// Opcional: mensaje de conexión exitosa solo para desarrollo
-pool.query('SELECT NOW()')
+// 🧪 Probar conexión
+pool
+  .query("SELECT NOW()")
   .then(() => {
-    const logger = require('../utils/logger');
-    logger.info('✅ Conectado a PostgreSQL');
+    logger.info("✅ Conectado a PostgreSQL");
   })
-  .catch(err => {
-    const logger = require('../utils/logger');
-    logger.error('❌ Error al conectar a PostgreSQL', err);
+  .catch((err) => {
+    logger.error("❌ Error al conectar a PostgreSQL", err);
   });
 
 module.exports = pool;

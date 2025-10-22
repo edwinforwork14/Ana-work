@@ -1,6 +1,10 @@
 // Nueva función para solo ocupados
 exports.getOcupadosStaff = async (req, res) => {
-  const { id_staff } = req.query;
+  // Allow staff users to omit id_staff: fallback to authenticated user's id
+  let { id_staff } = req.query;
+  if ((!id_staff || isNaN(Number(id_staff))) && req.user && req.user.rol === 'staff') {
+    id_staff = req.user.id;
+  }
   if (!id_staff || isNaN(Number(id_staff))) {
     return res.status(400).json({ error: 'Parámetro id_staff inválido o faltante' });
   }
@@ -86,7 +90,11 @@ exports.getCitasByStaffAndEstado = async (req, res) => {
 };
 
 exports.getDisponibilidadStaff = async (req, res) => {
-  const { id_staff, desde, hasta } = req.query;
+  // Allow staff users to omit id_staff and use their own id
+  let { id_staff, desde, hasta } = req.query;
+  if ((!id_staff || isNaN(Number(id_staff))) && req.user && req.user.rol === 'staff') {
+    id_staff = req.user.id;
+  }
   if (!id_staff || isNaN(Number(id_staff))) {
     return res.status(400).json({ error: 'Parámetro id_staff inválido o faltante' });
   }

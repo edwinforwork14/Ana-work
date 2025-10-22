@@ -242,10 +242,24 @@ update: async (id, data) => {
 
   // Eliminar cita
   delete: async (id) => {
-    // Eliminar notificaciones asociadas antes de borrar la cita
-    const Notificacion = require('./Notificacion');
-    await Notificacion.eliminarPorCita(id);
-    await pool.query('DELETE FROM citas WHERE id = $1', [id]);
+    // Eliminar documentos y notificaciones asociados antes de borrar la cita.
+    // Hacerlo dentro de una transacción para evitar violaciones de FK y operaciones parciales.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Eliminar documentos asociados a la cita
+      await client.query('DELETE FROM documentos WHERE id_cita = $1', [id]);
+      // Eliminar notificaciones asociadas a la cita
+      await client.query('DELETE FROM notificaciones WHERE id_cita = $1', [id]);
+      // Finalmente eliminar la cita
+      await client.query('DELETE FROM citas WHERE id = $1', [id]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   },
 
     // Confirmar cita (staff): valida solapamiento solo con citas confirmadas

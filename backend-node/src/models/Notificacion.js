@@ -79,4 +79,15 @@ Notificacion.listarPorRemitentes = async (remitenteIds, destinatarioId, rol) => 
   return result.rows;
 };
 
+Notificacion.crearRecordatorio = async ({ cita, tipo, mensaje, from = 'cliente' }) => {
+  const q = `
+    INSERT INTO notificaciones (id_usuario, tipo, mensaje, id_staff, id_cita, "from")
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *;
+  `;
+  const params = [cita.id_usuario, tipo, mensaje, cita.id_staff || null, cita.id, from];
+  const result = await pool.query(q, params);
+  return result.rows[0];
+};
+
 module.exports = Notificacion;
