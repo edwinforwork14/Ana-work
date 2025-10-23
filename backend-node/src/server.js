@@ -62,12 +62,14 @@ const citaRoutes = require("./routes/citaRoutes");
 const staffRoutes = require("./routes/staffRoutes");
 const notificacionRoutes = require("./routes/notificacionRoutes");
 const docRoutes = require("./routes/docRoutes");
+const adminRoutes = require("./routes/adminroutes");
 
 app.use("/api/auth", authRoutes);
 app.use("/api/citas", citaRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/notificaciones", notificacionRoutes);
 app.use("/api/documentos", docRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ===============================
 // 🧪 Rutas de prueba / salud del servidor

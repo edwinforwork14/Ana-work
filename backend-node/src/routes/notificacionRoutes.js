@@ -8,7 +8,7 @@ const router = express.Router();
 router.get("/", authMiddleware, notificacionController.listar);
 router.post("/:id/leida", authMiddleware, notificacionController.marcarLeida);
 
-router.post("/recordatorios-24h", notificacionController.send24hReminders);
+router.post("/recordatorios-24h", notificacionController.sendUpcomingReminders);
 
 
 module.exports = router;

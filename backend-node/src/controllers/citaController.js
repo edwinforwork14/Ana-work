@@ -4,6 +4,8 @@ const pool = require('../config/db');
 const Cita = require('../models/Cita');
 const { citaSchema } = require("./schemas");
 const Notificacion = require("../models/Notificacion");
+const { format } = require('date-fns');
+const { es } = require('date-fns/locale');
 
 // Helper para resolver nombres legibles para notificaciones.
 // Prioriza: req.user.nombre -> lookup por req.user.id -> lookup por fallbackUserId -> roleFallback
@@ -266,12 +268,24 @@ exports.confirmarCita = async (req, res) => {
     if (result.success) {
       // Crear notificación para el cliente cuando la cita es confirmada
       const cita = result.cita;
+      // Formatear fecha en español y simplificar hora
+      let fechaStr = '';
+      try {
+        const d = new Date(cita.fecha);
+        // ejemplo: 'miércoles 22 de octubre de 2025 a las 13:00'
+        fechaStr = format(d, "EEEE d 'de' MMMM 'de' yyyy 'a las' HH:mm", { locale: es });
+        // capitalizar primera letra
+        fechaStr = fechaStr.charAt(0).toUpperCase() + fechaStr.slice(1);
+      } catch (e) {
+        fechaStr = cita.fecha;
+      }
+
       await Notificacion.crear({
         id_usuario: cita.id_usuario,
         id_staff: cita.id_staff,
         id_cita: cita.id,
         tipo: "cita_confirmada_cliente",
-  mensaje: `Tu cita para el ${cita.fecha} ha sido confirmada por el staff ${req.user.nombre || 'Staff'}. Duración: ${cita.duracion || 60} minutos.`,
+        mensaje: `Tu cita para el ${fechaStr} ha sido confirmada por el staff ${req.user.nombre || 'Staff'}. Duración: ${cita.duracion || 60} minutos.`,
         from: 'staff'
       });
       res.json({ cita: result.cita, mensaje: result.mensaje, success: true });

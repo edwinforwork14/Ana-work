@@ -4,7 +4,8 @@ import useNotifications from '@/hooks/useNotifications';
 
 // KendoReact dynamic integration with graceful fallback when packages are not installed
 const App = () => {
-  const { notifs, loading, fetchNotifs, markAsRead } = useNotifications();
+  // Disable internal polling here to avoid duplicate requests if another component polls
+  const { notifs, loading, fetchNotifs, markAsRead } = useNotifications({ pollInterval: 0 });
   const [kendo, setKendo] = React.useState(null);
 
   // Try to dynamically import Kendo modules; if unavailable, keep null and render fallback
@@ -31,10 +32,10 @@ const App = () => {
     return () => { mounted = false; };
   }, []);
 
+  // Call fetchNotifs once when Kendo is ready so we still populate notifications
   React.useEffect(() => {
-    // ensure the hook's polling is active by calling fetch once on mount
-    fetchNotifs();
-  }, [fetchNotifs]);
+    if (kendo) fetchNotifs();
+  }, [kendo, fetchNotifs]);
 
   // If Kendo is available, render Kendo toasts; otherwise render a simple fallback list
   if (kendo) {

@@ -196,6 +196,17 @@ module.exports = {
   eliminarDocumento,
   verDocumento,
   downloadDocumento,
-  listarArchivosPorCita,
+	listarArchivosPorCita,
 	// debugDocumento removed
+	// Devuelve la cantidad total de documentos (solo admin)
+	countDocuments: async (req, res) => {
+		try {
+			const pool = require('../config/db');
+			const result = await pool.query('SELECT COUNT(*) AS total FROM documentos');
+			const total = parseInt(result.rows[0].total, 10) || 0;
+			res.json({ total });
+		} catch (err) {
+			res.status(500).json({ error: 'Error al contar documentos', details: err.message });
+		}
+	}
 };

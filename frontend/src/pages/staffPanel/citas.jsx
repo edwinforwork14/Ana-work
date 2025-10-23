@@ -18,6 +18,29 @@ export default function StaffCitas() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
+  // parse token to get current user info for client-side permission checks (UI only)
+  const parseJwt = (token) => {
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch (e) {
+      return {};
+    }
+  };
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const payload = token ? parseJwt(token) : {};
+  const currentUserId = payload.id || payload.user_id || '';
+  const currentUserRole = payload.rol || payload.role || '';
+
+  const canDelete = (cita) => {
+    // Admin can delete any cita
+    if (currentUserRole === 'admin') return true;
+    // Staff can delete only their assigned citas that are not confirmed
+    if (currentUserRole === 'staff' && String(cita.id_staff) === String(currentUserId) && cita.estado !== 'confirmada') return true;
+    // Cliente can delete their own citas that are not confirmed
+    if (currentUserRole === 'cliente' && String(cita.id_usuario) === String(currentUserId) && cita.estado !== 'confirmada') return true;
+    return false;
+  };
+
   useEffect(() => {
     const fetchCitas = async () => {
       try {

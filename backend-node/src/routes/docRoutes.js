@@ -9,6 +9,9 @@ router.get('/cita/:id_cita', authMiddleware, allowRoles(['cliente', 'staff', 'ad
 // Obtener todos los documentos subidos por el usuario autenticado, con filtros opcionales
 router.get('/mis-documentos', authMiddleware, allowRoles(['cliente', 'staff', 'admin']), documentoController.obtenerDocumentos);
 
+// Admin: obtener solo la cantidad total de documentos en el sistema
+router.get('/count', authMiddleware, allowRoles(['admin']), documentoController.countDocuments);
+
 // Ruta para ver/descargar un documento por su ID
 router.get('/ver/:id_documento', authMiddleware, canViewDocumento, documentoController.verDocumento);
 // Ruta para forzar descarga (útil para Postman "Send and Download")

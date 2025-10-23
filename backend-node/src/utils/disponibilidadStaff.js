@@ -6,15 +6,27 @@ const Cita = require('../models/Cita');
 
 function getDateBlocks(startDate, endDate, days, startHour, endHour, slotMinutes) {
   const blocks = [];
-  let current = new Date(startDate);
-  while (current <= endDate) {
+  // Normalizar a medianoche local
+  const toLocalMidnight = (d) => {
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      const [y, m, day] = d.split('-').map(Number);
+      return new Date(y, m - 1, day, 0, 0, 0, 0);
+    }
+    const dt = new Date(d);
+    return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0);
+  };
+
+  let current = toLocalMidnight(startDate);
+  const last = toLocalMidnight(endDate);
+  while (current <= last) {
     if (days.includes(current.getDay())) {
       for (let h = startHour; h < endHour; h += slotMinutes / 60) {
-        const blockStart = new Date(current);
-        blockStart.setHours(h, 0, 0, 0);
-        const blockEnd = new Date(blockStart);
-        blockEnd.setMinutes(blockEnd.getMinutes() + slotMinutes);
-        blocks.push({ start: new Date(blockStart), end: new Date(blockEnd) });
+        const year = current.getFullYear();
+        const month = current.getMonth();
+        const date = current.getDate();
+        const blockStart = new Date(year, month, date, Math.floor(h), (h % 1) ? ( (h % 1) * 60 ) : 0, 0, 0);
+        const blockEnd = new Date(blockStart.getTime() + slotMinutes * 60000);
+        blocks.push({ start: blockStart, end: blockEnd });
       }
     }
     current.setDate(current.getDate() + 1);

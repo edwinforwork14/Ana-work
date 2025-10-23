@@ -159,25 +159,40 @@ const Cita = {
       const ocupadas = result.rows;
 
       // 2. Generar bloques posibles según reglas de schemas.js
-      const { getDay, set } = require('date-fns');
+      // Normalizamos las entradas a medianoche LOCAL para evitar shifts por UTC
+      const { getDay } = require('date-fns');
       const bloques = [];
-      const startDate = new Date(fechaInicio);
-      const endDate = new Date(fechaFin);
+
+      const toLocalMidnight = (d) => {
+        if (!d) return null;
+        if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+          const [y, m, day] = d.split('-').map(Number);
+          return new Date(y, m - 1, day, 0, 0, 0, 0);
+        }
+        const dt = new Date(d);
+        return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate(), 0, 0, 0, 0);
+      };
+
+      const startDate = toLocalMidnight(fechaInicio);
+      const endDate = toLocalMidnight(fechaFin);
+
       for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
         const dia = getDay(d); // 0=domingo, 1=lunes, ...
-        let horarios = [];
         if (dia === 0) continue; // domingo no hay bloques
+        let horarios = [];
         if (dia >= 1 && dia <= 5) {
-          // Lunes a viernes: 7am a 18pm
-          horarios = Array.from({length: 12}, (_, i) => 7 + i); // 7 a 18
+          // Lunes a viernes: bloques hora a hora desde 7 hasta 18
+          horarios = Array.from({ length: 11 }, (_, i) => 7 + i); // 7..17 (cada bloque 1h)
         } else if (dia === 6) {
-          // Sábado: 7am a 14pm
-          horarios = Array.from({length: 8}, (_, i) => 7 + i); // 7 a 14
+          // Sábado: 7..13
+          horarios = Array.from({ length: 7 }, (_, i) => 7 + i); // 7..13
         }
         for (const h of horarios) {
-          const blockStart = set(new Date(d), { hours: h, minutes: 0, seconds: 0, milliseconds: 0 });
-          const blockEnd = set(new Date(d), { hours: h+1, minutes: 0, seconds: 0, milliseconds: 0 });
-          // Verificar si está ocupado
+          const year = d.getFullYear();
+          const month = d.getMonth();
+          const date = d.getDate();
+          const blockStart = new Date(year, month, date, h, 0, 0, 0);
+          const blockEnd = new Date(year, month, date, h + 1, 0, 0, 0);
           const ocupado = ocupadas.some(o => {
             const oStart = new Date(o.fecha);
             const oEnd = new Date(o.end_time);

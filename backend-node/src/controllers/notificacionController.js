@@ -48,74 +48,88 @@ exports.marcarLeida = async (req, res) => {
 };
 
 /**
- * Genera recordatorios automáticos para citas próximas.
- * Por defecto, busca entre 23.5h y 24.5h, pero se puede ajustar
- * con variables o query params (para pruebas).
+ * Enviar recordatorios automáticos para citas próximas:
+ *  - 24 horas antes
+ *  - 8 horas antes
+ *  - 2 horas antes
  */
-async function send24hReminders(customRange) {
+async function sendTimeBasedReminders() {
   const now = new Date();
 
-  // Rango configurable: { from: 8, to: 10 } → entre 8 y 10 horas
-  const hoursFrom = customRange?.from ?? 8.5; // valor por defecto
-  const hoursTo = customRange?.to ?? 10.5;
+  console.log(`[${now.toISOString()}] 🔔 Buscando citas próximas para recordatorios...`);
 
-  const targetStart = new Date(now.getTime() + hoursFrom * 60 * 60 * 1000);
-  const targetEnd = new Date(now.getTime() + hoursTo * 60 * 60 * 1000);
+  // Definimos los tipos y sus rangos
+  const reminderConfigs = [
+    { tipo: "recordatorio_24h", from: 23.5, to: 24.5 },
+    { tipo: "recordatorio_8h", from: 7.5, to: 8.5 },
+    { tipo: "recordatorio_2h", from: 1.5, to: 2.5 },
+  ];
 
-  const q = `
-    SELECT c.*, u.nombre AS nombre_usuario, s.nombre AS nombre_staff
-    FROM citas c
-    JOIN usuarios u ON c.id_usuario = u.id
-    LEFT JOIN usuarios s ON c.id_staff = s.id
-    WHERE c.estado = 'confirmada' AND c.fecha > $1 AND c.fecha <= $2
-  `;
+  let totalCreated = [];
 
-  const result = await pool.query(q, [targetStart, targetEnd]);
-  const citas = result.rows;
-  const created = [];
+  for (const cfg of reminderConfigs) {
+    const targetStart = new Date(now.getTime() + cfg.from * 60 * 60 * 1000);
+    const targetEnd = new Date(now.getTime() + cfg.to * 60 * 60 * 1000);
 
-  for (const c of citas) {
-    const tipo = "recordatorio_" + Math.round(hoursTo) + "h";
+    const q = `
+      SELECT c.*, u.nombre AS nombre_usuario, s.nombre AS nombre_staff
+      FROM citas c
+      JOIN usuarios u ON c.id_usuario = u.id
+      LEFT JOIN usuarios s ON c.id_staff = s.id
+      WHERE c.estado = 'confirmada'
+        AND c.fecha > $1
+        AND c.fecha <= $2
+    `;
 
-    // Evitar duplicados
-    const exists = await pool.query(
-      "SELECT 1 FROM notificaciones WHERE id_cita = $1 AND tipo = $2 LIMIT 1",
-      [c.id, tipo]
-    );
-    if (exists.rows.length > 0) continue;
+    const result = await pool.query(q, [targetStart, targetEnd]);
+    const citas = result.rows;
 
-    const fechaStr = new Date(c.fecha).toLocaleString();
-    const mensaje = `Recordatorio: su cita está programada para ${fechaStr}${
-      c.nombre_staff ? " con " + c.nombre_staff : ""
-    }.`.trim();
+    for (const c of citas) {
+      // Evitar enviar el mismo tipo dos veces
+      const exists = await pool.query(
+        "SELECT 1 FROM notificaciones WHERE id_cita = $1 AND tipo = $2 LIMIT 1",
+        [c.id, cfg.tipo]
+      );
+      if (exists.rows.length > 0) continue;
 
-const notif = await Notificacion.crearRecordatorio({
-  cita: c,
-  tipo,
-  mensaje,
-  from: "staff", // enviar como si viniera del staff/system para que el cliente lo vea (listarPorUsuario filtra 'from' = 'staff')
-});
+      const fechaStr = new Date(c.fecha).toLocaleString();
+      const mensaje = `📅 Recordatorio: su cita está programada para ${fechaStr}${
+        c.nombre_staff ? " con " + c.nombre_staff : ""
+      }.`.trim();
 
-    await pool.query("UPDATE citas SET recordatorio_enviado = true WHERE id = $1", [c.id]);
-    created.push(notif);
+      const notif = await Notificacion.crearRecordatorio({
+        cita: c,
+        tipo: cfg.tipo,
+        mensaje,
+        from: "staff", // se muestra al cliente como si viniera del staff/sistema
+      });
+
+      await pool.query("UPDATE citas SET recordatorio_enviado = true WHERE id = $1", [c.id]);
+
+      totalCreated.push(notif);
+    }
   }
 
-  return created;
+  console.log(`✅ Recordatorios creados: ${totalCreated.length}`);
+  return totalCreated;
 }
 
-
+/**
+ * Ruta manual (para probar desde Postman o navegador)
+ */
 exports.enviarRecordatorios = async (req, res) => {
   try {
-    const created = await send24hReminders();
+    const created = await sendTimeBasedReminders();
     res.json({
       ok: true,
       enviados: created.length,
       notificaciones: created,
     });
   } catch (e) {
+    console.error("❌ Error enviando recordatorios:", e);
     res.status(500).json({ error: e.message });
   }
 };
 
-// Exportar también la función
-exports.send24hReminders = send24hReminders;
+// Exportar la función para el jobRunner
+exports.sendTimeBasedReminders = sendTimeBasedReminders;

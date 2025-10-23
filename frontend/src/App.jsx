@@ -13,6 +13,7 @@ import UploadDocument from './pages/clientePanel/uploadDocument';
 import VerMisDocumentos from './pages/clientePanel/verMisDocumentos';
 import Notifications from './pages/notifications';
 import StaffCitas from './pages/staffPanel/citas';
+import StaffDocuments from './pages/staffPanel/documents';
 import AdminCitas from './pages/adminPanel/citas';
 import PrivateRoute from './components/PrivateRoute';
 import WithBackground from './components/WithBackground';
@@ -99,6 +100,7 @@ export default function App() {
       <Route path="/cliente/mis-documentos" element={<WithBackground isAuthenticated={isAuthenticated} userInfo={userInfo} onLogout={handleLogout}><PrivateRoute><VerMisDocumentos /></PrivateRoute></WithBackground>} />
 
       <Route path="/staff/citas" element={<WithBackground isAuthenticated={isAuthenticated} userInfo={userInfo} onLogout={handleLogout}><PrivateRoute><StaffCitas /></PrivateRoute></WithBackground>} />
+  <Route path="/staff/documentos" element={<WithBackground isAuthenticated={isAuthenticated} userInfo={userInfo} onLogout={handleLogout}><PrivateRoute><StaffDocuments /></PrivateRoute></WithBackground>} />
       <Route path="/admin/citas" element={<WithBackground isAuthenticated={isAuthenticated} userInfo={userInfo} onLogout={handleLogout}><PrivateRoute><AdminCitas /></PrivateRoute></WithBackground>} />
   <Route path="/notifications" element={<WithBackground isAuthenticated={isAuthenticated} userInfo={userInfo} onLogout={handleLogout}><PrivateRoute><Notifications /></PrivateRoute></WithBackground>} />
   {/* Spanish alias */}

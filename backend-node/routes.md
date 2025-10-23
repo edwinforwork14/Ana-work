@@ -173,6 +173,44 @@ Este documento lista todas las rutas registradas en el backend (método, path co
 
 ---
 
+## Admin routes (mounted at /api/admin)
+
+- GET /api/admin/citas
+  - Protected + allowRoles(['admin'])
+  - Query params (opcionales): desde=YYYY-MM-DD, hasta=YYYY-MM-DD, id_usuario, id_staff, estado
+  - Ejemplo: /api/admin/citas?desde=2025-10-01&hasta=2025-10-31&id_staff=17
+  - Devuelve: { citas: [ /* objetos de cita */ ] }
+
+- GET /api/admin/citas/con-documentos
+  - Protected + allowRoles(['admin'])
+  - Mismos query params opcionales que /api/admin/citas
+  - Ejemplo: /api/admin/citas/con-documentos?desde=2025-10-01&hasta=2025-10-07
+  - Devuelve: { citas: [ /* citas que tienen documentos */ ] }
+
+- GET /api/admin/citas/:id/historial
+  - Protected + allowRoles(['admin'])
+  - Path param: id (id de la cita)
+  - Query params (opcionales): desde=YYYY-MM-DD, hasta=YYYY-MM-DD
+  - Ejemplo: /api/admin/citas/123/historial?desde=2025-10-01&hasta=2025-10-22
+  - Devuelve: { cita: { ... }, historial: [ { tipo: 'notificacion'|'documento'|'cita', data: {...}, fecha } ] }
+
+- GET /api/admin/clientes/:id/historial
+  - Protected + allowRoles(['admin'])
+  - Path param: id (id del cliente / id_usuario)
+  - Query params (opcionales): desde=YYYY-MM-DD, hasta=YYYY-MM-DD
+  - Ejemplo: /api/admin/clientes/45/historial?desde=2025-09-01&hasta=2025-10-22
+  - Devuelve: { citas: [...], documentos: [...], notificaciones: [...] }
+
+- GET /api/admin/panel
+  - Protected + allowRoles(['admin'])
+  - Query params:
+    - period=day|week|month (default: day)
+    - fecha=YYYY-MM-DD (fecha base para el periodo; default: hoy)
+    - id_staff (opcional, para filtrar métricas por staff)
+  - Ejemplo: /api/admin/panel?period=week&fecha=2025-10-20
+  - Devuelve métricas: { period, start, end, totalCitas, estados: { pendiente: X, confirmada: Y, ... }, totalDocumentos }
+
+
 ## Otras rutas
 - GET /ping
   - Pública

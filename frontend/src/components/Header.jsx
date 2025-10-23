@@ -67,7 +67,11 @@ export default function Header({ isAuthenticated, userInfo, onLogout }) {
                 </Link>
               </div>
             ) : (
-              <ProfileMenu isAuthenticated={isAuthenticated} userInfo={userInfo} onLogout={onLogout} />
+              <div className="flex items-center gap-2">
+                {/* Notifications bell */}
+                <NotificationsBell />
+                <ProfileMenu isAuthenticated={isAuthenticated} userInfo={userInfo} onLogout={onLogout} />
+              </div>
             )}
           </div>
         </div>

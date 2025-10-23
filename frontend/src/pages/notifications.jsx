@@ -5,13 +5,20 @@ import Button from "@/components/ui/button";
 import useNotifications from "@/hooks/useNotifications";
 
 export default function NotificationsPage() {
-  const { notifs, loading, error, fetchNotifs, markAsRead } = useNotifications();
+  // Disable automatic polling in this full-page view; user can refresh manualmente
+  const { notifs, loading, error, fetchNotifs, markAsRead } = useNotifications({ pollInterval: 0 });
   const navigate = useNavigate();
+  
+  function parseJwt(token) {
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch {
+      return {};
+    }
+  }
 
-  // fetchNotifs and markAsRead are provided by the hook
-  useEffect(() => {
-    fetchNotifs();
-  }, [fetchNotifs]);
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const role = token ? (parseJwt(token).rol || '') : '';
 
   return (
     <section className="p-6 text-gray-300">
@@ -51,7 +58,15 @@ export default function NotificationsPage() {
                         <Button onClick={() => markAsRead(n.id)} className="bg-green-600 text-sm">Marcar leída</Button>
                       )}
                       {n.id_cita && (
-                        <Button onClick={() => navigate(`/cliente/mis-citas`)} className="bg-transparent border border-gray-600 text-sm">Ver cita</Button>
+                        <Button
+                          onClick={() => {
+                            if (role === 'staff') navigate('/staff/citas');
+                            else navigate('/cliente/mis-citas');
+                          }}
+                          className="bg-transparent border border-gray-600 text-sm"
+                        >
+                          Ver cita
+                        </Button>
                       )}
                     </div>
                   </div>

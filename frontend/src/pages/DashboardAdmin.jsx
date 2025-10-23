@@ -1,16 +1,87 @@
 // pages/DashboardAdmin.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
+function formatDateISO(d = new Date()) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function DashboardAdmin() {
   const navigate = useNavigate();
+  const [period, setPeriod] = useState('day');
+  const [fecha, setFecha] = useState(formatDateISO());
+  const [idStaff, setIdStaff] = useState('');
+
+  // 🔹 Estados de métricas
+  const [totalCitas, setTotalCitas] = useState(0);
+  const [totalDocumentos, setTotalDocumentos] = useState(0);
+  const [loadingCitas, setLoadingCitas] = useState(false);
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [error, setError] = useState(null);
+
   const handleAgendas = () => navigate('/admin/citas');
-  const handleQuickbooks = () => {
-    // placeholder: would navigate or open quickbooks integration
-    window.open('https://quickbooks.intuit.com', '_blank');
-  };
+  const handleQuickbooks = () => window.open('https://quickbooks.intuit.com', '_blank');
   const handleUsuarios = () => navigate('/admin/usuarios');
+
+  // =============================
+  // 🔹 Cargar total de citas
+  // =============================
+  useEffect(() => {
+    const loadCitas = async () => {
+      setLoadingCitas(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:3000/api/citas', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const data = await res.json();
+        setTotalCitas(Array.isArray(data) ? data.length : 0);
+      } catch (err) {
+        setError(err.message || 'Error cargando citas');
+      } finally {
+        setLoadingCitas(false);
+      }
+    };
+    loadCitas();
+  }, []);
+
+  // =============================
+  // 🔹 Cargar total de documentos
+  // =============================
+  useEffect(() => {
+    const loadDocumentos = async () => {
+      setLoadingDocs(true);
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:3000/api/documentos/count', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const data = await res.json();
+
+        // ✅ Aquí el cambio: usar "data.total"
+        setTotalDocumentos(data.total || 0);
+      } catch (err) {
+        setError(err.message || 'Error cargando documentos');
+      } finally {
+        setLoadingDocs(false);
+      }
+    };
+    loadDocumentos();
+  }, []);
+
+  const handleOpenCitasFiltered = () => {
+    const qs = new URLSearchParams();
+    if (fecha) qs.set('desde', fecha);
+    if (fecha) qs.set('hasta', fecha);
+    if (idStaff) qs.set('id_staff', idStaff);
+    navigate(`/admin/citas?${qs.toString()}`);
+  };
 
   return (
     <div className="space-y-6">
@@ -23,44 +94,67 @@ export default function DashboardAdmin() {
         </div>
       </div>
 
-      <section className="py-8">
-        <div className="max-w-screen-xl mx-auto px-4 text-gray-600 md:px-8">
-          <div className="relative max-w-xl mx-auto sm:text-center mb-8">
-            <h3 className="text-gray-800 text-3xl font-semibold sm:text-4xl">Acciones rápidas</h3>
-            <div className="mt-3 max-w-xl">
-              <p>Administra agendas, usuarios y la integración con QuickBooks desde aquí.</p>
+      <section className="py-6">
+        <div className="max-w-screen-xl mx-auto px-4 md:px-8">
+          <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="space-x-2">
+                <Button onClick={() => setPeriod('day')} className={`px-3 py-1 rounded ${period === 'day' ? 'bg-blue-600 text-white' : 'bg-white/90 text-gray-800'}`}>Día</Button>
+                <Button onClick={() => setPeriod('week')} className={`px-3 py-1 rounded ${period === 'week' ? 'bg-blue-600 text-white' : 'bg-white/90 text-gray-800'}`}>Semana</Button>
+                <Button onClick={() => setPeriod('month')} className={`px-3 py-1 rounded ${period === 'month' ? 'bg-blue-600 text-white' : 'bg-white/90 text-gray-800'}`}>Mes</Button>
+              </div>
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="px-3 py-1 rounded border" />
+              <input placeholder="Filtrar por id_staff" value={idStaff} onChange={e => setIdStaff(e.target.value)} className="px-3 py-1 rounded border w-44" />
+              <Button onClick={handleOpenCitasFiltered} className="px-3 py-1 bg-gray-800 text-white rounded">Ver citas filtradas</Button>
+            </div>
+            <div className="text-sm text-gray-600">Periodo: <strong>{period}</strong></div>
+          </div>
+
+          {/* ===============================
+              BLOQUES DE MÉTRICAS PRINCIPALES
+          =============================== */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+            {/* 🔹 Total de Citas */}
+            <div className="p-6 bg-white/90 dark:bg-gray-800/80 rounded-xl shadow">
+              <h4 className="text-lg font-semibold">Total de citas</h4>
+              <div className="text-3xl font-bold mt-3">
+                {loadingCitas ? '...' : totalCitas}
+              </div>
+              <div className="text-sm text-gray-500 mt-2">
+                Total registradas en la base de datos
+              </div>
+              {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+            </div>
+
+            {/* 🔹 Documentos subidos */}
+            <div className="p-6 bg-white/90 dark:bg-gray-800/80 rounded-xl shadow">
+              <h4 className="text-lg font-semibold">Documentos subidos</h4>
+              <div className="text-3xl font-bold mt-3">
+                {loadingDocs ? '...' : totalDocumentos}
+              </div>
+              <div className="text-sm text-gray-500 mt-2">
+                Total registrados en la base de datos
+              </div>
+              {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+            </div>
+
+            {/* 🔹 Placeholder de estados */}
+            <div className="p-6 bg-white/90 dark:bg-gray-800/80 rounded-xl shadow">
+              <h4 className="text-lg font-semibold">Estados</h4>
+              <div className="mt-3 text-gray-500 text-sm">En desarrollo</div>
             </div>
           </div>
 
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 bg-white/90 dark:bg-gray-800/80 rounded-xl shadow flex flex-col justify-between">
-              <div>
-                <h4 className="text-xl font-bold text-purple-700 mb-2">Agendas</h4>
-                <p className="text-gray-700 dark:text-gray-200">Revisa y administra las agendas de los staff.</p>
-              </div>
-              <div className="mt-6">
-                <Button onClick={handleAgendas} color="secondary" className="w-full px-4 py-3 border border-blue-600 text-blue-600 rounded-md hover:bg-blue-50">Ver agendas</Button>
-              </div>
-            </div>
-
-            <div className="p-6 bg-white/90 dark:bg-gray-800/80 rounded-xl shadow flex flex-col justify-between">
-              <div>
-                <h4 className="text-xl font-bold text-green-600 mb-2">QuickBooks</h4>
-                <p className="text-gray-700 dark:text-gray-200">Administrar la integración contable y facturación.</p>
-              </div>
-              <div className="mt-6">
-                <Button onClick={handleQuickbooks} variant="contained" color="success" className="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700">Abrir QuickBooks</Button>
-              </div>
-            </div>
-
-            <div className="p-6 bg-white/90 dark:bg-gray-800/80 rounded-xl shadow flex flex-col justify-between">
-              <div>
-                <h4 className="text-xl font-bold text-blue-700 mb-2">Usuarios</h4>
-                <p className="text-gray-700 dark:text-gray-200">Gestiona usuarios, roles y permisos del sistema.</p>
-              </div>
-              <div className="mt-6">
-                <Button onClick={handleUsuarios} color="secondary" className="w-full px-4 py-3 bg-gray-600 text-white rounded-md hover:bg-gray-700">Gestionar usuarios</Button>
-              </div>
+          {/* ===============================
+              ACCIONES RÁPIDAS
+          =============================== */}
+          <div className="mt-8 bg-white/90 dark:bg-gray-800/80 rounded-xl shadow p-4">
+            <h4 className="text-lg font-semibold mb-3">Acciones rápidas</h4>
+            <div className="flex flex-col md:flex-row gap-3">
+              <Button onClick={handleAgendas} className="px-4 py-2 border border-blue-600 text-blue-600 rounded-md">Ver todas las agendas</Button>
+              <Button onClick={() => navigate('/admin/citas?conDocumentos=true')} className="px-4 py-2 bg-yellow-500 text-white rounded-md">Citas con documentos</Button>
+              <Button onClick={() => navigate('/admin/usuarios')} className="px-4 py-2 bg-gray-600 text-white rounded-md">Gestionar usuarios</Button>
             </div>
           </div>
         </div>
